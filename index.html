@@ -7,6 +7,14 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  // Point PDF.js at its background worker (required for it to run).
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 <style>
   :root {
     --bg: #0f1117; --surface: #181c27; --surface2: #1e2435; --border: #2a3045;
@@ -273,9 +281,9 @@
       <div class="img-drop-zone" id="imgDropZone"
         onclick="document.getElementById('imgFileInput').click()"
         ondragover="handleImgDragOver(event,'imgDropZone')" ondragleave="handleImgDragLeave('imgDropZone')" ondrop="handleImgDrop(event)">
-        <input type="file" id="imgFileInput" accept="image/*" onchange="handleImgFile(event)">
-        <span style="font-size:1.4rem">📷</span>
-        <div class="img-drop-label"><strong>Drop screenshot or photo here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> / <strong style="color:var(--accent)">Cmd+V</strong> to paste from clipboard<br><span style="font-size:0.65rem;color:var(--muted)">AI reads pallet numbers automatically</span></div>
+        <input type="file" id="imgFileInput" accept="image/*,application/pdf" onchange="handleImgFile(event)">
+        <span style="font-size:1.4rem">📄</span>
+        <div class="img-drop-label"><strong>Drop a PDF, screenshot, or photo here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> / <strong style="color:var(--accent)">Cmd+V</strong> to paste a screenshot<br><span style="font-size:0.65rem;color:var(--muted)">PDFs are read directly (exact); images use the photo reader</span></div>
         <img id="imgPreview" class="img-preview"/>
         <div class="scan-status" id="scanStatus"></div>
       </div>
@@ -387,8 +395,8 @@
           onclick="document.getElementById('czFileInput').click()"
           ondragover="handleImgDragOver(event,'czDropZone')" ondragleave="handleImgDragLeave('czDropZone')"
           ondrop="handleCreatorDrop(event,'coldzone')">
-          <input type="file" id="czFileInput" accept="image/*" onchange="handleCreatorFile(event,'coldzone')">
-          <div class="img-drop-label"><strong>Drop Cold Zone BOL screenshot here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste<br><span style="font-size:0.63rem;color:var(--muted)">Extracts Pack ID + Prod date automatically</span></div>
+          <input type="file" id="czFileInput" accept="image/*,application/pdf" onchange="handleCreatorFile(event,'coldzone')">
+          <div class="img-drop-label"><strong>Drop Cold Zone BOL PDF or screenshot here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste<br><span style="font-size:0.63rem;color:var(--muted)">Extracts Pack ID + Prod date automatically</span></div>
           <img id="czImgPreview" class="img-preview"/>
           <div class="scan-status" id="czScanStatus"></div>
         </div>
@@ -406,8 +414,8 @@
           onclick="document.getElementById('vtFileInput').click()"
           ondragover="handleImgDragOver(event,'vtDropZone')" ondragleave="handleImgDragLeave('vtDropZone')"
           ondrop="handleCreatorDrop(event,'vertical')">
-          <input type="file" id="vtFileInput" accept="image/*" onchange="handleCreatorFile(event,'vertical')">
-          <div class="img-drop-label"><strong>Drop Vertical BOL screenshot here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
+          <input type="file" id="vtFileInput" accept="image/*,application/pdf" onchange="handleCreatorFile(event,'vertical')">
+          <div class="img-drop-label"><strong>Drop Vertical BOL PDF or screenshot here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
           <img id="vtImgPreview" class="img-preview"/>
           <div class="scan-status" id="vtScanStatus"></div>
         </div>
@@ -424,8 +432,8 @@
           onclick="document.getElementById('hnFileInput').click()"
           ondragover="handleImgDragOver(event,'hnDropZone')" ondragleave="handleImgDragLeave('hnDropZone')"
           ondrop="handleCreatorDrop(event,'henorth')">
-          <input type="file" id="hnFileInput" accept="image/*" onchange="handleCreatorFile(event,'henorth')">
-          <div class="img-drop-label"><strong>Drop HE North tag image here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
+          <input type="file" id="hnFileInput" accept="image/*,application/pdf" onchange="handleCreatorFile(event,'henorth')">
+          <div class="img-drop-label"><strong>Drop HE North PDF or tag image here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
           <img id="hnImgPreview" class="img-preview"/>
           <div class="scan-status" id="hnScanStatus"></div>
         </div>
@@ -619,6 +627,180 @@ function snapToKnown(reading, validSet) {
     for (const c of opts) rec(i + 1, acc + c);
   })(0, '');
   return [...hits];
+}
+
+// ── PDF reading ───────────────────────────────────────────────────
+// Most PDFs from a system have a real text layer, so we read the pallet IDs
+// out as exact text — no OCR, no guessing, every row. Only if a page has no
+// text (a scanned/photographed PDF) do we render it and fall back to OCR.
+
+// Rebuild visual lines from PDF.js text items by grouping items that sit on
+// the same horizontal line (same Y), then ordering each line left-to-right.
+function itemsToLines(items) {
+  const rows = [];
+  items.forEach(it => {
+    if (!it.str || !it.str.trim()) return;
+    const y = Math.round(it.transform[5]);
+    let row = rows.find(r => Math.abs(r.y - y) <= 3);
+    if (!row) { row = { y, items: [] }; rows.push(row); }
+    row.items.push(it);
+  });
+  rows.sort((a, b) => b.y - a.y);  // top of page first
+  return rows
+    .map(r => r.items.sort((a, b) => a.transform[4] - b.transform[4]).map(i => i.str).join(' ').trim())
+    .filter(Boolean);
+}
+
+// OCR a list of rendered page canvases with a single shared engine.
+async function ocrCanvasPages(canvases, statusEl) {
+  const worker = await Tesseract.createWorker('eng', 1, {
+    logger: m => {
+      if (statusEl && m.status === 'recognizing text') {
+        statusEl.textContent = '⟳ Reading scanned page... ' + Math.round(m.progress * 100) + '%';
+      }
+    }
+  });
+  let out = '';
+  try {
+    await worker.setParameters({ tessedit_char_whitelist: OCR_WHITELIST, user_defined_dpi: '300' });
+    for (const c of canvases) {
+      const { data } = await worker.recognize(c);
+      out += (data.text || '') + '\n';
+    }
+  } finally {
+    try { await worker.terminate(); } catch (e) {}
+  }
+  return out;
+}
+
+// Read a PDF file → { text, numPages, scanned, hadText }.
+async function readPdf(file, statusEl) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('PDF reader did not load — check the internet connection and reload the page.');
+  }
+  if (statusEl) statusEl.textContent = '⟳ Opening PDF...';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const textLines = [];
+  const scannedCanvases = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    if (statusEl) statusEl.textContent = '⟳ Reading PDF page ' + p + ' of ' + pdf.numPages + '...';
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const lines = itemsToLines(content.items);
+    const compact = lines.join('').replace(/\s/g, '');
+    if (compact.length >= 4) {
+      textLines.push(...lines);          // real text layer — read it directly
+    } else {
+      // No text on this page → it's an image/scan. Render it for OCR fallback.
+      const vp = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext('2d', { willReadFrequently: true }), viewport: vp }).promise;
+      scannedCanvases.push(canvas);
+    }
+  }
+  let text = textLines.join('\n');
+  if (scannedCanvases.length) {
+    if (statusEl) statusEl.textContent = '⟳ This PDF is scanned — reading the images...';
+    const ocrText = await ocrCanvasPages(scannedCanvases, statusEl);
+    text = (text ? text + '\n' : '') + ocrText;
+  }
+  return { text, numPages: pdf.numPages, scanned: scannedCanvases.length > 0, hadText: textLines.length > 0 };
+}
+
+// ── Shared matcher extraction ─────────────────────────────────────
+// Pull pallet IDs out of any block of text (from a PDF text layer, OCR, or a
+// paste). Three passes: (1) IP-style 16-char codes, reconstructed canonically;
+// (2) pure numeric pallets 5–9 digits; (3) "PREFIX+digits" run-together tokens.
+function extractPalletNumbers(rawText) {
+  const numbers = [];
+  const seen = new Set();
+  const addCandidate = (cleaned) => {
+    if (!cleaned || seen.has(cleaned)) return;
+    seen.add(cleaned);
+    numbers.push(cleaned);
+  };
+  const ipCandidateRx = /[A-Za-z0-9]{12,20}/g;
+  const ipCands = rawText.match(ipCandidateRx) || [];
+  ipCands.forEach(c => { const norm = normalizeIpToken(c, false); if (norm) addCandidate(norm); });
+  const tokens = rawText.split(/[\s\r\n\t,;|]+/).filter(Boolean);
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const joined = (tokens[i] + tokens[i + 1]).replace(/[^A-Za-z0-9]/g, '');
+    if (joined.length >= 14 && joined.length <= 18) {
+      const norm = normalizeIpToken(joined, false);
+      if (norm) addCandidate(norm);
+    }
+  }
+  tokens.forEach(t => {
+    const cleaned = t.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (cleaned && /^\d{5,9}$/.test(cleaned)) addCandidate(cleaned);
+  });
+  const ocrDigitFix = (s) => s.replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+  tokens.forEach(t => {
+    const cleaned = t.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (!cleaned) return;
+    if (/^\d+$/.test(cleaned)) return;
+    if (normalizeIpToken(cleaned, false)) return;
+    const m = cleaned.match(/^([A-Z]{2,7})([A-Z0-9]{6,9})$/);
+    if (!m) return;
+    const tail = ocrDigitFix(m[2]);
+    if (/^\d{6,9}$/.test(tail)) addCandidate(tail);
+  });
+  return numbers;
+}
+
+// Take a block of text, extract pallets, auto-correct numeric ones against the
+// synced BC list, drop them into the input box, and report. Shared by the image
+// scanner and the PDF reader. `sourceNote` tags the source (e.g. "from PDF").
+function handleMatcherText(rawText, statusEl, dz, sourceNote) {
+  const numbers = extractPalletNumbers(rawText);
+  if (!numbers.length) throw new Error('No pallet numbers found in this file.');
+
+  let corrected = 0;
+  const validSet = new Set(parsedLots.map(l => (l.pallet || '').toUpperCase()).filter(Boolean));
+  const finalNumbers = validSet.size ? numbers.map(n => {
+    if (!/^\d{5,9}$/.test(n) || validSet.has(n)) return n;
+    const hits = snapToKnown(n, validSet);
+    if (hits.length === 1) { corrected++; return hits[0]; }
+    return n;
+  }) : numbers;
+
+  const textarea = document.getElementById('palletInput');
+  textarea.value = finalNumbers.join('\n');
+  textarea.dispatchEvent(new Event('input'));
+
+  if (dz) { dz.classList.remove('scanning'); dz.classList.add('done'); }
+  if (statusEl) {
+    statusEl.className = 'scan-status done';
+    let msg = '✓ ' + finalNumbers.length + ' pallet numbers extracted';
+    if (sourceNote) msg += ' · ' + sourceNote;
+    if (corrected) msg += ' · ' + corrected + ' auto-corrected';
+    if (!validSet.size) msg += ' · sync lots for auto-correct';
+    statusEl.textContent = msg;
+  }
+}
+
+// Read a PDF for the Matcher tab and feed its text through the shared handler.
+async function processMatcherPdf(file) {
+  const dz = document.getElementById('imgDropZone');
+  const status = document.getElementById('scanStatus');
+  document.getElementById('imgPreview').style.display = 'none';
+  dz.classList.remove('done', 'error-state');
+  dz.classList.add('scanning');
+  status.className = 'scan-status scanning';
+  status.textContent = '⟳ Opening PDF...';
+  try {
+    const { text, scanned } = await readPdf(file, status);
+    if (!text.trim()) throw new Error('No readable text found in this PDF.');
+    handleMatcherText(text, status, dz, scanned ? 'scanned PDF' : 'from PDF');
+  } catch (err) {
+    dz.classList.remove('scanning');
+    dz.classList.add('error-state');
+    status.className = 'scan-status error';
+    status.textContent = '✕ ' + (err.message || 'Could not read PDF');
+    console.error('PDF error:', err);
+  }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────
@@ -915,11 +1097,46 @@ function handleCreatorDrop(e, src) {
   const dzId = { coldzone: 'czDropZone', vertical: 'vtDropZone', henorth: 'hnDropZone' }[src];
   if (dzId) document.getElementById(dzId).classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) processCreatorImage(file, src);
+  if (!file) return;
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) processCreatorPdf(file, src);
+  else if (file.type.startsWith('image/')) processCreatorImage(file, src);
 }
 function handleCreatorFile(e, src) {
   const file = e.target.files[0];
-  if (file) processCreatorImage(file, src);
+  if (!file) return;
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) processCreatorPdf(file, src);
+  else processCreatorImage(file, src);
+}
+
+// Read a PDF for a Lot Creator source and feed its text through the same
+// per-source parser the image scanner uses.
+async function processCreatorPdf(file, src) {
+  const dzMap   = { coldzone: 'czDropZone',   vertical: 'vtDropZone',   henorth: 'hnDropZone' };
+  const statMap = { coldzone: 'czScanStatus', vertical: 'vtScanStatus', henorth: 'hnScanStatus' };
+  const dz     = document.getElementById(dzMap[src]);
+  const status = document.getElementById(statMap[src]);
+  dz.classList.remove('done', 'error-state');
+  dz.classList.add('scanning');
+  status.className = 'scan-status scanning';
+  status.textContent = '⟳ Opening PDF...';
+  try {
+    const { text, scanned } = await readPdf(file, status);
+    if (!text.trim()) throw new Error('No readable text found in this PDF.');
+    const parsed = parseOcrText(text, src);
+    if (!parsed.length) throw new Error('Could not find lot data in this PDF. Try manual entry below.');
+    mergeCreatorEntries(parsed);
+    dz.classList.remove('scanning');
+    dz.classList.add('done');
+    status.className = 'scan-status done';
+    status.textContent = '✓ ' + parsed.length + ' rows found' + (scanned ? ' (scanned PDF)' : ' (from PDF)');
+    renderCreatorResults();
+  } catch (err) {
+    dz.classList.remove('scanning');
+    dz.classList.add('error-state');
+    status.className = 'scan-status error';
+    status.textContent = '✕ ' + (err.message || 'Could not read PDF');
+    console.error('Creator PDF error:', err);
+  }
 }
 
 // ── OCR processing ────────────────────────────────────────────────
@@ -1516,11 +1733,15 @@ function handleImgDrop(e) {
   e.preventDefault();
   document.getElementById('imgDropZone').classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) processImage(file);
+  if (!file) return;
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) processMatcherPdf(file);
+  else if (file.type.startsWith('image/')) processImage(file);
 }
 function handleImgFile(e) {
   const file = e.target.files[0];
-  if (file) processImage(file);
+  if (!file) return;
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) processMatcherPdf(file);
+  else processImage(file);
 }
 
 function processImage(file) {
@@ -1547,99 +1768,7 @@ function processImage(file) {
       status.textContent = '⟳ Preparing image...';
       const rawText = await runOcr(file, status, OCR_WHITELIST);
       if (!rawText.trim()) throw new Error('No text found in image. Try a clearer screenshot.');
-
-      // Extract pallet IDs from OCR text. Three passes:
-      //   1. IP-style alphanumeric pallet IDs — 16 chars: "IP" + 5 digits + 2-letter
-      //      delimiter (OT, MM, …) + 7 digits. Use normalizeIpToken(_, false) to
-      //      reconstruct canonical form even when Tesseract mangles characters
-      //      (e.g. "IP006510T0000598" → "IP00651OT0000598").
-      //   2. Pure numeric pallet numbers — 5-9 digits.
-      //   3. "PREFIX + digits" tokens missing the space separator, e.g. "NOLTCL54901098".
-      const numbers = [];
-      const seen = new Set();
-      const addCandidate = (cleaned) => {
-        if (!cleaned || seen.has(cleaned)) return;
-        seen.add(cleaned);
-        numbers.push(cleaned);
-      };
-
-      // Pass 1: Look for IP-style candidates and feed each through the canonical
-      // normalizer (lenient mode — accepts any 2-letter delimiter, not just OT).
-      // Also try joining adjacent tokens to handle the case where Tesseract split
-      // the ID (e.g. "IP00651" + "OT0000598" → "IP00651OT0000598").
-      const ipCandidateRx = /[A-Za-z0-9]{12,20}/g;
-      const ipCands = rawText.match(ipCandidateRx) || [];
-      ipCands.forEach(c => {
-        const norm = normalizeIpToken(c, false);
-        if (norm) addCandidate(norm);
-      });
-      // Try joining adjacent alphanumeric tokens too (handles split IPs).
-      const tokens = rawText.split(/[\s\r\n\t,;|]+/).filter(Boolean);
-      for (let i = 0; i < tokens.length - 1; i++) {
-        const joined = (tokens[i] + tokens[i+1]).replace(/[^A-Za-z0-9]/g, '');
-        if (joined.length >= 14 && joined.length <= 18) {
-          const norm = normalizeIpToken(joined, false);
-          if (norm) addCandidate(norm);
-        }
-      }
-
-      // Pass 2: Pure numeric pallets (5-9 digits) from individual tokens. The upper
-      // bound was widened from 8 to 9 to handle longer pallet schemes (e.g. 149406381).
-      tokens.forEach(t => {
-        const cleaned = t.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        if (!cleaned) return;
-        if (/^\d{5,9}$/.test(cleaned)) addCandidate(cleaned);
-      });
-
-      // Pass 3: "PREFIX + 6-9 digits" tokens with no separator, e.g. "NOLTCL54901098",
-      // "CRITBA149406381", "CRITBAZ50109828". OCR sometimes drops the space between
-      // the farm prefix and the pallet number, especially in tightly-cropped table
-      // screenshots. Allow 2-7 letter prefixes (CRITBAZ is 7) and 6-9 digit pallets.
-      // Extract the trailing digit run (the actual pallet #). Be tolerant of common
-      // Tesseract digit-letter confusions in the numeric tail (O→0, I→1, S→5, B→8)
-      // since the prefix has already absorbed the letter run, leaving only digits.
-      const ocrDigitFix = (s) => s.replace(/O/g,'0').replace(/I/g,'1').replace(/S/g,'5').replace(/B/g,'8');
-      tokens.forEach(t => {
-        const cleaned = t.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        if (!cleaned) return;
-        // Skip anything we'd already have caught (pure digits, IP codes).
-        if (/^\d+$/.test(cleaned)) return;
-        if (normalizeIpToken(cleaned, false)) return;
-        const m = cleaned.match(/^([A-Z]{2,7})([A-Z0-9]{6,9})$/);
-        if (!m) return;
-        const tail = ocrDigitFix(m[2]);
-        if (/^\d{6,9}$/.test(tail)) addCandidate(tail);
-      });
-
-      if (!numbers.length) throw new Error('Could not extract pallet numbers.');
-
-      // Auto-correct misread numeric pallets against the live BC lot list.
-      // Because we already know every valid pallet for this company, a "5" that
-      // should be an "8" can be fixed silently — only the correct version exists
-      // in inventory. Needs a completed Sync; if lots aren't loaded yet, readings
-      // pass through unchanged.
-      let corrected = 0, stillAmbiguous = 0;
-      const validSet = new Set(parsedLots.map(l => (l.pallet || '').toUpperCase()).filter(Boolean));
-      const finalNumbers = validSet.size ? numbers.map(n => {
-        if (!/^\d{5,9}$/.test(n) || validSet.has(n)) return n;  // non-numeric or already valid
-        const hits = snapToKnown(n, validSet);
-        if (hits.length === 1) { corrected++; return hits[0]; } // confident fix
-        if (hits.length > 1) stillAmbiguous++;
-        return n;                                               // unknown or ambiguous — leave as read
-      }) : numbers;
-
-      // Put into textarea
-      const textarea = document.getElementById('palletInput');
-      textarea.value = finalNumbers.join('\n');
-      textarea.dispatchEvent(new Event('input'));
-
-      dz.classList.remove('scanning');
-      dz.classList.add('done');
-      status.className = 'scan-status done';
-      let doneMsg = `✓ ${finalNumbers.length} pallet numbers extracted`;
-      if (corrected) doneMsg += ` · ${corrected} auto-corrected`;
-      if (!validSet.size) doneMsg += ' · sync lots for auto-correct';
-      status.textContent = doneMsg;
+      handleMatcherText(rawText, status, dz);
 
     } catch(err) {
       dz.classList.remove('scanning');
