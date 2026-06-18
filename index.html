@@ -495,6 +495,132 @@ function saveFarmPrefixMap(map) {
 }
 let farmPrefixMap = getFarmPrefixMap();
 
+// ── OCR accuracy helpers ──────────────────────────────────────────
+// Characters we ever expect in pallet IDs, lot numbers, and dates. Restricting
+// the OCR engine to this set stops it inventing stray punctuation and biases
+// letter-vs-digit calls in the right direction.
+const OCR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/ ';
+
+// Sharpen an image before OCR. Tesseract was trained on clean ~300 DPI
+// black-on-white text; raw screenshots are low-resolution, anti-aliased, and
+// often tinted. We upscale, convert to grayscale, and binarize using Otsu's
+// automatic threshold (so we don't have to guess a magic cutoff). Guards:
+//  - if the auto-threshold would wipe the image to nearly one colour
+//    (e.g. faint handwriting), we keep the plain grayscale instead;
+//  - if the image is mostly dark (a dark-mode screenshot), we invert so text
+//    ends up dark on light, which Tesseract reads far better.
+// Any failure falls back to the original file untouched.
+async function prepForOcr(file) {
+  try {
+    const url = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+    });
+    const img = await new Promise((res, rej) => {
+      const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url;
+    });
+    const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+    if (!w0 || !h0) return file;
+    let scale = 3;
+    const maxDim = Math.max(w0, h0);
+    if (maxDim * scale > 4200) scale = Math.max(1, Math.floor(4200 / maxDim));
+    const cw = Math.round(w0 * scale), ch = Math.round(h0 * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, cw, ch);
+    const imgData = ctx.getImageData(0, 0, cw, ch);
+    const d = imgData.data, n = cw * ch;
+    const gray = new Uint8ClampedArray(n);
+    const hist = new Array(256).fill(0);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const g = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0;
+      gray[p] = g; hist[g]++;
+    }
+    // Otsu's method — pick the threshold that best separates dark from light.
+    let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sumB = 0, wB = 0, maxVar = 0, thr = 127;
+    for (let i = 0; i < 256; i++) {
+      wB += hist[i]; if (!wB) continue;
+      const wF = n - wB; if (!wF) break;
+      sumB += i * hist[i];
+      const mB = sumB / wB, mF = (sum - sumB) / wF;
+      const between = wB * wF * (mB - mF) * (mB - mF);
+      if (between > maxVar) { maxVar = between; thr = i; }
+    }
+    let dark = 0;
+    for (let p = 0; p < n; p++) if (gray[p] <= thr) dark++;
+    const darkFrac = dark / n;
+    let mode;
+    if (darkFrac >= 0.005 && darkFrac <= 0.5) mode = 'normal';
+    else if (darkFrac > 0.5) mode = 'invert';
+    else mode = 'gray';
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      let v;
+      if (mode === 'normal') v = gray[p] <= thr ? 0 : 255;
+      else if (mode === 'invert') v = gray[p] <= thr ? 255 : 0;
+      else v = gray[p];
+      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+  } catch (e) {
+    console.warn('Image preprocessing skipped, using raw file:', e);
+    return file;
+  }
+}
+
+// Run Tesseract with the image sharpened and the engine constrained to our
+// expected character set + a sensible assumed resolution. statusEl (optional)
+// receives live progress text. Returns the recognized text.
+async function runOcr(file, statusEl, whitelist) {
+  const source = await prepForOcr(file);
+  const worker = await Tesseract.createWorker('eng', 1, {
+    logger: m => {
+      if (statusEl && m.status === 'recognizing text') {
+        statusEl.textContent = '⟳ Scanning... ' + Math.round(m.progress * 100) + '%';
+      }
+    }
+  });
+  try {
+    await worker.setParameters({
+      tessedit_char_whitelist: whitelist || OCR_WHITELIST,
+      user_defined_dpi: '300'
+    });
+    const { data } = await worker.recognize(source);
+    return data.text || '';
+  } finally {
+    try { await worker.terminate(); } catch (e) {}
+  }
+}
+
+// Common Tesseract digit confusions (each entry includes the digit itself so
+// the original reading is always one of the candidates). Used to auto-correct
+// a misread numeric pallet by snapping it to a known-valid BC lot — e.g. a "5"
+// that should be an "8". Kept small so the candidate search stays tiny.
+const DIGIT_CONF = {
+  '0': '08', '1': '17', '2': '2', '3': '38', '4': '49',
+  '5': '56', '6': '568', '7': '17', '8': '085', '9': '49'
+};
+
+// Given a numeric reading and the set of valid pallet IDs from BC, return every
+// valid pallet reachable by swapping confusable digits. 1 hit = confident fix,
+// 2+ = ambiguous (leave alone), 0 = genuinely unknown. Only operates on 5–9
+// digit numeric readings; IP codes are handled separately by normalizeIpToken.
+function snapToKnown(reading, validSet) {
+  if (!/^\d{5,9}$/.test(reading)) return [];
+  let product = 1;
+  for (const ch of reading) product *= (DIGIT_CONF[ch] || ch).length;
+  if (product > 200000) return [];   // safety cap — never hit in practice
+  const hits = new Set();
+  (function rec(i, acc) {
+    if (i === reading.length) { if (validSet.has(acc)) hits.add(acc); return; }
+    const opts = DIGIT_CONF[reading[i]] || reading[i];
+    for (const c of opts) rec(i + 1, acc + c);
+  })(0, '');
+  return [...hits];
+}
+
 // ── Auth ──────────────────────────────────────────────────────────
 function checkPassword() {
   const val = document.getElementById('pwInput').value;
@@ -814,17 +940,10 @@ async function processCreatorImage(file, src) {
   dz.classList.remove('done','error-state');
   dz.classList.add('scanning');
   status.className = 'scan-status scanning';
-  status.textContent = '⟳ Loading OCR engine...';
+  status.textContent = '⟳ Preparing image...';
 
   try {
-    const { data: ocrData } = await Tesseract.recognize(file, 'eng', {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          status.textContent = '⟳ Scanning... ' + Math.round(m.progress * 100) + '%';
-        }
-      }
-    });
-    const rawText = ocrData.text || '';
+    const rawText = await runOcr(file, status, OCR_WHITELIST);
     if (!rawText.trim()) throw new Error('No text found. Try a clearer screenshot.');
 
     // Parse OCR text according to source type
@@ -1423,17 +1542,10 @@ function processImage(file) {
     status.textContent = '⟳ Scanning for pallet numbers...';
 
     try {
-      // Run Tesseract OCR entirely in browser — no API key, no server, free forever
-      status.textContent = '⟳ Loading OCR engine...';
-      const { data: ocrData } = await Tesseract.recognize(file, 'eng', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            status.textContent = `⟳ Scanning... ${Math.round(m.progress * 100)}%`;
-          }
-        }
-      });
-
-      const rawText = ocrData.text || '';
+      // Run Tesseract OCR entirely in browser — no API key, no server, free forever.
+      // Image is sharpened first and the engine is constrained for accuracy.
+      status.textContent = '⟳ Preparing image...';
+      const rawText = await runOcr(file, status, OCR_WHITELIST);
       if (!rawText.trim()) throw new Error('No text found in image. Try a clearer screenshot.');
 
       // Extract pallet IDs from OCR text. Three passes:
@@ -1501,15 +1613,33 @@ function processImage(file) {
 
       if (!numbers.length) throw new Error('Could not extract pallet numbers.');
 
+      // Auto-correct misread numeric pallets against the live BC lot list.
+      // Because we already know every valid pallet for this company, a "5" that
+      // should be an "8" can be fixed silently — only the correct version exists
+      // in inventory. Needs a completed Sync; if lots aren't loaded yet, readings
+      // pass through unchanged.
+      let corrected = 0, stillAmbiguous = 0;
+      const validSet = new Set(parsedLots.map(l => (l.pallet || '').toUpperCase()).filter(Boolean));
+      const finalNumbers = validSet.size ? numbers.map(n => {
+        if (!/^\d{5,9}$/.test(n) || validSet.has(n)) return n;  // non-numeric or already valid
+        const hits = snapToKnown(n, validSet);
+        if (hits.length === 1) { corrected++; return hits[0]; } // confident fix
+        if (hits.length > 1) stillAmbiguous++;
+        return n;                                               // unknown or ambiguous — leave as read
+      }) : numbers;
+
       // Put into textarea
       const textarea = document.getElementById('palletInput');
-      textarea.value = numbers.join('\n');
+      textarea.value = finalNumbers.join('\n');
       textarea.dispatchEvent(new Event('input'));
 
       dz.classList.remove('scanning');
       dz.classList.add('done');
       status.className = 'scan-status done';
-      status.textContent = `✓ ${numbers.length} pallet numbers extracted`;
+      let doneMsg = `✓ ${finalNumbers.length} pallet numbers extracted`;
+      if (corrected) doneMsg += ` · ${corrected} auto-corrected`;
+      if (!validSet.size) doneMsg += ' · sync lots for auto-correct';
+      status.textContent = doneMsg;
 
     } catch(err) {
       dz.classList.remove('scanning');
