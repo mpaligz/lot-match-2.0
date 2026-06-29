@@ -1465,6 +1465,7 @@ function copyClaudeMatcherPrompt() {
 }
 
 
+function processImage(file) {
   const reader = new FileReader();
   reader.onload = async function(e) {
     const base64 = e.target.result.split(',')[1];
