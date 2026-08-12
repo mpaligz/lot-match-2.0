@@ -201,14 +201,6 @@
   .creator-num-input:focus { border-color:var(--accent); }
 
   /* ── Pack ID verification ── */
-  .vfy { display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:0.66rem; padding:2px 7px; border-radius:3px; white-space:nowrap; }
-  .vfy.ok        { background:#0f2a1e; color:var(--accent2); }
-  .vfy.fixed     { background:#001e3a; color:#5ba4d4; }
-  .vfy.ambiguous { background:#2e2205; color:var(--warn); cursor:pointer; }
-  .vfy.unknown   { background:#2a1a0f; color:var(--warn); }
-  .vfy.plain     { background:var(--surface2); color:var(--muted); }
-  .cand-select { background:var(--surface2); border:1px solid var(--warn); border-radius:4px; color:var(--warn); font-family:var(--mono); font-size:0.7rem; padding:3px 6px; outline:none; max-width:210px; }
-  .cand-select:focus { border-color:var(--accent); }
   .banner { font-family:var(--mono); font-size:0.7rem; padding:10px 14px; border-bottom:1px solid var(--border); line-height:1.55; }
   .banner.warn { color:var(--warn); background:#241a06; }
   .banner.info { color:#5ba4d4; background:#001a2e; }
@@ -217,6 +209,112 @@
   .src-note.text  { background:#0f2a1e; color:var(--accent2); display:block; }
   .src-note.ocr   { background:#241a06; color:var(--warn); display:block; }
   .src-note.mixed { background:#001a2e; color:#5ba4d4; display:block; }
+
+  /* ── Creator layout ── */
+  .creator-grid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:20px; align-items:start; margin-bottom:20px; }
+  @media (max-width:960px) { .creator-grid { grid-template-columns:1fr; } }
+  .seg { display:flex; background:var(--surface2); border:1px solid var(--border); border-radius:7px; padding:3px; gap:3px; }
+  .seg .bol-src-btn { border:none; border-radius:5px; background:transparent; padding:8px 6px; }
+  .seg .bol-src-btn.active { background:var(--accent); color:#fff; }
+
+  /* Collapsible section */
+  .fold-head { display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+  .fold-head:hover { background:#232a3d; }
+  .fold-head .label { font-family:var(--mono); font-size:0.7rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); }
+  .fold-head .caret { color:var(--muted); font-size:0.7rem; transition:transform 0.18s; }
+  .fold-head.open .caret { transform:rotate(90deg); }
+  .fold-summary { margin-left:auto; font-family:var(--mono); font-size:0.64rem; color:var(--muted); text-align:right; }
+  .fold-body { display:none; }
+  .fold-body.open { display:block; }
+
+  /* ── Row editor ── */
+  .rows-table { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:0.74rem; }
+  .rows-table thead th { text-align:left; padding:8px 10px; font-size:0.62rem; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); font-weight:600; background:var(--surface2); position:sticky; top:0; z-index:2; }
+  .rows-table tbody tr { border-bottom:1px solid #222839; }
+  .rows-table tbody tr:hover { background:var(--surface2); }
+  .rows-table tbody tr.dragging { opacity:0.35; }
+  .rows-table tbody tr.drop-target td { border-top:2px solid var(--accent2); }
+  .rows-table tbody tr.flagged { box-shadow:inset 3px 0 0 var(--warn); }
+  .rows-table td { padding:5px 10px; vertical-align:middle; }
+  .rows-scroll { max-height:420px; overflow-y:auto; }
+  .rgrip { color:#3d465e; cursor:grab; font-size:0.9rem; user-select:none; padding:0 2px; }
+  .rgrip:hover { color:var(--accent); }
+  .rnum { color:#475069; font-size:0.65rem; width:26px; text-align:right; }
+  .rbtn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--muted); font-size:0.62rem; line-height:1; padding:4px 6px; cursor:pointer; font-family:var(--mono); }
+  .rbtn:hover { color:var(--text); border-color:var(--accent); }
+  .rbtn:disabled { opacity:0.22; cursor:not-allowed; }
+  .rbtn.del:hover { color:var(--danger); border-color:var(--danger); }
+  .lot-input { background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--accent2); font-family:var(--mono); font-size:0.74rem; font-weight:600; padding:4px 8px; outline:none; width:100%; min-width:190px; }
+  .lot-input:focus { border-color:var(--accent); color:var(--text); }
+  .lot-input.pending { color:var(--warn); border-color:var(--warn); }
+
+  /* ── Excel-style preview grid ── */
+  .xl-frame { background:#fff; border:1px solid #b8c0cc; border-radius:6px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.35); }
+  .xl-bar { display:flex; align-items:center; gap:8px; padding:7px 10px; background:#f3f4f6; border-bottom:1px solid #d0d7de; }
+  .xl-tab { font-family:var(--sans); font-size:0.7rem; font-weight:600; color:#217346; background:#fff; border:1px solid #d0d7de; border-bottom-color:#fff; border-radius:4px 4px 0 0; padding:4px 12px; margin-bottom:-8px; }
+  .xl-meta { margin-left:auto; font-family:var(--mono); font-size:0.63rem; color:#6b7280; }
+  .xl-scroll { max-height:400px; overflow:auto; }
+  .xl-grid { border-collapse:collapse; font-family:'Aptos Narrow','Calibri','IBM Plex Sans',sans-serif; font-size:0.78rem; color:#111827; width:100%; }
+  .xl-grid th, .xl-grid td { border:1px solid #d0d7de; padding:3px 8px; white-space:nowrap; }
+  .xl-grid .xl-col { background:#f0f1f3; color:#5b6472; font-size:0.66rem; font-weight:600; text-align:center; font-family:var(--mono); position:sticky; top:0; z-index:3; height:20px; }
+  .xl-grid .xl-hdr { background:#e8f2ec; color:#14532d; font-weight:700; font-size:0.74rem; text-align:left; position:sticky; top:20px; z-index:3; }
+  .xl-grid .xl-rownum { background:#f0f1f3; color:#5b6472; font-size:0.66rem; text-align:center; font-family:var(--mono); width:34px; position:sticky; left:0; z-index:2; }
+  .xl-grid td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .xl-grid td.bool { text-align:center; text-transform:uppercase; }
+  .xl-grid tbody tr:hover td { background:#f6faf7; }
+  .xl-empty { padding:26px 16px; text-align:center; font-family:var(--mono); font-size:0.72rem; color:#6b7280; background:#fff; }
+  .xl-caption { font-family:var(--mono); font-size:0.63rem; color:var(--muted); margin-top:8px; line-height:1.6; }
+
+  /* ── Collapsible panels ── */
+  .panel-header.clickable { cursor:pointer; user-select:none; }
+  .panel-header.clickable:hover { background:#232a3d; }
+  .chev { color:var(--muted); font-size:0.7rem; transition:transform 0.18s; display:inline-block; margin-right:7px; }
+  .panel.collapsed .chev { transform:rotate(-90deg); }
+  .panel.collapsed .panel-body { display:none; }
+  .hgroup { display:flex; align-items:center; gap:0; flex:1; }
+  .hgroup .sub { font-family:var(--mono); font-size:0.63rem; color:var(--muted); margin-left:10px; font-weight:400; text-transform:none; letter-spacing:0; }
+
+  /* ── Excel-style sheet preview ── */
+  .sheet-wrap { overflow:auto; max-height:440px; border:1px solid var(--border); border-radius:6px; background:#0d111b; }
+  .sheet { border-collapse:separate; border-spacing:0; font-family:var(--mono); font-size:0.72rem; width:max-content; min-width:100%; }
+  .sheet th, .sheet td { border-right:1px solid #222a3c; border-bottom:1px solid #222a3c; padding:5px 10px; white-space:nowrap; }
+  .sheet thead tr.letters th { position:sticky; top:0; background:#1b2130; color:var(--muted); font-size:0.6rem; font-weight:500; letter-spacing:0.1em; text-align:center; z-index:3; }
+  .sheet thead tr.names th { position:sticky; top:23px; background:#20273a; color:var(--text); font-size:0.68rem; font-weight:600; text-align:left; z-index:3; }
+  .sheet .rownum { position:sticky; left:0; background:#1b2130; color:var(--muted); text-align:right; font-size:0.6rem; z-index:2; padding:5px 8px; }
+  .sheet thead .rownum { z-index:4; }
+  .sheet tbody tr:hover td { background:#161c2a; }
+  .sheet tbody tr:hover .rownum { background:#242c40; color:var(--text); }
+  .sheet td.c-txt  { color:var(--text); text-align:left; }
+  .sheet td.c-num  { color:#e0a94a; text-align:right; }
+  .sheet td.c-date { color:#a888e0; text-align:right; }
+  .sheet td.c-bool { color:#5ba4d4; text-align:center; }
+  .sheet td.c-key  { color:var(--accent2); text-align:left; font-weight:600; }
+  .sheet-legend { display:flex; gap:14px; flex-wrap:wrap; font-family:var(--mono); font-size:0.62rem; color:var(--muted); padding:9px 2px 0; }
+  .sheet-legend span b { font-weight:600; }
+  .sheet-empty { padding:26px 16px; text-align:center; font-family:var(--mono); font-size:0.72rem; color:var(--muted); }
+
+  /* ── Editable row list ── */
+  .rowlist { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:0.74rem; }
+  .rowlist th { text-align:left; padding:7px 9px; font-size:0.62rem; letter-spacing:0.07em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); font-weight:500; }
+  .rowlist td { padding:4px 9px; border-bottom:1px solid #1e2434; vertical-align:middle; }
+  .rowlist tr.dragging { opacity:0.35; }
+  .rowlist tr.drop-above td { box-shadow:inset 0 2px 0 var(--accent2); }
+  .rowlist tr.drop-below td { box-shadow:inset 0 -2px 0 var(--accent2); }
+  .rowlist tr:hover td { background:#161c2a; }
+  .rgrip { cursor:grab; color:#3d465e; font-size:0.9rem; user-select:none; padding:0 2px; }
+  .rgrip:hover { color:var(--accent); }
+  .rnum { color:var(--muted); font-size:0.62rem; text-align:right; width:1%; }
+  .rin { width:100%; min-width:130px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:var(--mono); font-size:0.73rem; padding:4px 8px; outline:none; }
+  .rin:focus { border-color:var(--accent); }
+  .rin.narrow { min-width:86px; }
+  .rin.flag { border-color:var(--warn); color:var(--warn); }
+  .rdel { background:none; border:1px solid var(--border); border-radius:4px; color:#5a6478; font-size:0.72rem; line-height:1; padding:4px 7px; cursor:pointer; font-family:var(--mono); }
+  .rdel:hover { color:var(--danger); border-color:var(--danger); }
+  .rowbar { display:flex; gap:9px; align-items:center; flex-wrap:wrap; padding:11px 14px; border-top:1px solid var(--border); }
+  .btn-mini { background:var(--surface2); border:1px solid var(--border); border-radius:5px; color:var(--text); font-family:var(--mono); font-size:0.7rem; padding:6px 11px; cursor:pointer; }
+  .btn-mini:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-mini.accent { border-color:#1d4d33; color:var(--accent2); }
+  .btn-mini.accent:hover { border-color:var(--accent2); background:#0f2a1e; }
 
   /* ── Receipt settings ── */
   .set-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; padding:14px 16px; }
@@ -396,166 +494,189 @@
   <!-- ── TAB: LOT CREATOR ── -->
   <div class="tab-content" id="tabContent-creator">
 
-    <!-- Step 1: BOL Source -->
+    <!-- ① Source selector — compact segmented control -->
     <div class="panel" style="margin-bottom:20px;">
       <div class="panel-header">
-        <span class="label">① BOL Source</span>
+        <span class="label">① Receipt Source</span>
         <span class="badge" id="badge-bol-source">Cold Zone</span>
       </div>
-      <div style="display:flex;gap:0;padding:14px 16px;">
-        <button class="bol-src-btn active" id="src-coldzone" onclick="selectBolSource('coldzone')">Cold Zone</button>
-        <button class="bol-src-btn" id="src-vertical" onclick="selectBolSource('vertical')">Vertical</button>
-        <button class="bol-src-btn" id="src-henorth" onclick="selectBolSource('henorth')">HE North</button>
+      <div style="padding:14px 16px 10px;">
+        <div class="seg">
+          <button class="bol-src-btn active" id="src-coldzone" onclick="selectBolSource('coldzone')">Cold Zone</button>
+          <button class="bol-src-btn" id="src-vertical" onclick="selectBolSource('vertical')">Vertical</button>
+          <button class="bol-src-btn" id="src-henorth" onclick="selectBolSource('henorth')">HE North</button>
+        </div>
       </div>
-      <div style="padding:0 16px 14px;font-family:var(--mono);font-size:0.68rem;color:var(--muted)" id="srcDescription">
-        Warehouse Receipt. Columns: Pack ID | Cases | Plts | Item | Description | Prod | Exp | Lot No. | Weight. Pack ID → BC Lot, Prod → Lay Date. BC derives the expiration date itself.
+      <div style="padding:0 16px 14px;font-family:var(--mono);font-size:0.66rem;color:var(--muted);line-height:1.6" id="srcDescription"></div>
+    </div>
+
+    <!-- ② Input  |  ③ Defaults — side by side -->
+    <div class="creator-grid">
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="label">② Load the Receipt</span>
+          <span class="badge" id="badge-creator-pallets">0 rows</span>
+        </div>
+
+        <!-- ── COLD ZONE ── -->
+        <div id="input-coldzone">
+          <div class="img-drop-zone" id="czDropZone"
+            onclick="document.getElementById('czFileInput').click()"
+            ondragover="handleImgDragOver(event,'czDropZone')" ondragleave="handleImgDragLeave('czDropZone')"
+            ondrop="handleCreatorDrop(event,'coldzone')">
+            <input type="file" id="czFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'coldzone')">
+            <div class="img-drop-label"><strong>Drop the Cold Zone receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read from the text layer — no OCR, no misread digits</span></div>
+            <img id="czImgPreview" class="img-preview"/>
+            <div class="scan-status" id="czScanStatus"></div>
+          </div>
+          <div class="src-note" id="czSrcNote"></div>
+          <div style="font-family:var(--mono);font-size:0.63rem;color:var(--muted);text-align:center;padding:4px 0;">— or paste rows below: PackID ⇥ Date ⇥ Qty —</div>
+          <textarea id="czManualInput" placeholder="IP00921OT0000346&#9;7/29/2026&#10;IP00921OT0000347&#9;7/29/2026" style="height:78px;" oninput="onCreatorManualInput()"></textarea>
+        </div>
+
+        <!-- ── VERTICAL ── -->
+        <div id="input-vertical" style="display:none;">
+          <div class="img-drop-zone" id="vtDropZone"
+            onclick="document.getElementById('vtFileInput').click()"
+            ondragover="handleImgDragOver(event,'vtDropZone')" ondragleave="handleImgDragLeave('vtDropZone')"
+            ondrop="handleCreatorDrop(event,'vertical')">
+            <input type="file" id="vtFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'vertical')">
+            <div class="img-drop-label"><strong>Drop the Vertical receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read from the text layer — no OCR, no misread digits</span></div>
+            <img id="vtImgPreview" class="img-preview"/>
+            <div class="scan-status" id="vtScanStatus"></div>
+          </div>
+          <div class="src-note" id="vtSrcNote"></div>
+          <div style="font-family:var(--mono);font-size:0.63rem;color:var(--muted);text-align:center;padding:4px 0;">— or paste rows below: Lot ⇥ YYMMDD ⇥ Qty —</div>
+          <textarea id="vtManualInput" placeholder="IP00331OT0000320&#9;260729&#10;IP00331OT0000318&#9;260730" style="height:78px;" oninput="onCreatorManualInput()"></textarea>
+        </div>
+
+        <!-- ── HE NORTH ── -->
+        <div id="input-henorth" style="display:none;">
+          <div class="img-drop-zone" id="hnDropZone"
+            onclick="document.getElementById('hnFileInput').click()"
+            ondragover="handleImgDragOver(event,'hnDropZone')" ondragleave="handleImgDragLeave('hnDropZone')"
+            ondrop="handleCreatorDrop(event,'henorth')">
+            <input type="file" id="hnFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'henorth')">
+            <div class="img-drop-label"><strong>Drop HE North tag image or PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
+            <img id="hnImgPreview" class="img-preview"/>
+            <div class="scan-status" id="hnScanStatus"></div>
+          </div>
+          <div class="src-note" id="hnSrcNote"></div>
+          <div style="font-family:var(--mono);font-size:0.63rem;color:var(--muted);text-align:center;padding:4px 0;">— or paste rows below: Tag ⇥ M-D-YY ⇥ Qty —</div>
+          <textarea id="hnManualInput" placeholder="CRITBA1 49406363&#9;3-15-26&#10;CRITBA1 49406364&#9;3-15-26" style="height:78px;" oninput="onCreatorManualInput()"></textarea>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="label">③ Defaults</span>
+          <span class="badge" id="badge-defaults">900 / pallet</span>
+        </div>
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:14px;">
+          <div class="set-field">
+            <label>Quantity (Base) per pallet</label>
+            <input type="number" id="setQty" value="900" min="0" step="1" oninput="onSettingsChange()"/>
+            <span class="set-hint">Applied to every new row</span>
+          </div>
+          <div class="set-field">
+            <label>Availability, Lot No.</label>
+            <select id="setAvail" onchange="onSettingsChange()">
+              <option value="TRUE">TRUE</option>
+              <option value="FALSE">FALSE</option>
+            </select>
+          </div>
+          <div class="set-field">
+            <label>Date format for paste</label>
+            <select id="setDateFmt" onchange="onSettingsChange()">
+              <option value="mdyy">M/D/YY</option>
+              <option value="mmddyyyy">MM/DD/YYYY</option>
+              <option value="iso">YYYY-MM-DD</option>
+            </select>
+            <span class="set-hint">XLSX export always writes real dates</span>
+          </div>
+        </div>
+        <!-- Fallback flock — folded away, since IP codes resolve themselves -->
+        <div class="fold-head" id="fold-flock-head" onclick="toggleFold('flock')">
+          <span class="caret">▸</span>
+          <span class="label">Fallback Flock Code</span>
+          <span class="fold-summary" id="foldFlockSummary">not set</span>
+        </div>
+        <div class="fold-body" id="fold-flock-body">
+          <div class="flock-input-wrap" style="padding:14px 16px;">
+            <input type="text" class="flock-input" id="czFlockInput" maxlength="4" placeholder="3024"
+              oninput="onCzFlockInput()" autocomplete="off" style="font-size:1.05rem;padding:8px 12px;"/>
+            <div class="flock-preview" id="czFlockPreview">Not needed for IP Pack IDs — their flock is looked up automatically</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Step 1b: Receipt defaults -->
-    <div class="panel" style="margin-bottom:20px;">
-      <div class="panel-header">
-        <span class="label">①ᵇ Receipt Defaults</span>
-        <span class="badge" id="badge-defaults">900 / pallet</span>
-      </div>
-      <div class="set-grid">
-        <div class="set-field">
-          <label>Quantity (Base) per pallet</label>
-          <input type="number" id="setQty" value="900" min="0" step="1" oninput="onSettingsChange()"/>
-          <span class="set-hint">Applied to every new row</span>
-        </div>
-        <div class="set-field">
-          <label>Availability, Lot No.</label>
-          <select id="setAvail" onchange="onSettingsChange()">
-            <option value="TRUE">TRUE</option>
-            <option value="FALSE">FALSE</option>
-          </select>
-          <span class="set-hint">Matches BC template column A</span>
-        </div>
-        <div class="set-field">
-          <label>Date format for paste</label>
-          <select id="setDateFmt" onchange="onSettingsChange()">
-            <option value="mdyy">M/D/YY</option>
-            <option value="mmddyyyy">MM/DD/YYYY</option>
-            <option value="iso">YYYY-MM-DD</option>
-          </select>
-          <span class="set-hint">XLSX export always writes real dates</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 2: Input (source-dependent) -->
-    <div class="panel" style="margin-bottom:20px;">
-      <div class="panel-header">
-        <span class="label">② Input</span>
-        <span class="badge" id="badge-creator-pallets">0 rows</span>
-      </div>
-
-      <!-- Shared flock code — always visible -->
-      <div class="flock-input-wrap" style="padding-bottom:0;border-bottom:1px solid var(--border);">
-        <label class="flock-label">Fallback flock code — only for 7-digit Pack IDs</label>
-        <input type="text" class="flock-input" id="czFlockInput" maxlength="4" placeholder="3024"
-          oninput="onCzFlockInput()" autocomplete="off" style="font-size:1.2rem;padding:10px 14px;"/>
-        <div class="flock-preview" id="czFlockPreview">Enter a flock code to preview lot format</div>
-      </div>
-
-      <!-- ── COLD ZONE ── -->
-      <div id="input-coldzone">
-        <div class="img-drop-zone" id="czDropZone"
-          onclick="document.getElementById('czFileInput').click()"
-          ondragover="handleImgDragOver(event,'czDropZone')" ondragleave="handleImgDragLeave('czDropZone')"
-          ondrop="handleCreatorDrop(event,'coldzone')">
-          <input type="file" id="czFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'coldzone')">
-          <div class="img-drop-label"><strong>Drop the Cold Zone receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read directly from the text layer — no OCR, no misread digits</span></div>
-          <img id="czImgPreview" class="img-preview"/>
-          <div class="scan-status" id="czScanStatus"></div>
-        </div>
-        <div class="src-note" id="czSrcNote"></div>
-        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-align:center;padding:6px 0 4px;">— or enter manually below (PackID TAB ProdDate, one per line) —</div>
-        <textarea id="czManualInput" placeholder="4567890&#9;3/15/2026&#10;IP00941OT0000008&#9;3/16/2026" style="height:100px;" oninput="onCreatorManualInput()"></textarea>
-      </div>
-
-      <!-- ── VERTICAL ── -->
-      <div id="input-vertical" style="display:none;">
-        <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);padding:14px 16px 0;line-height:1.6;">
-          Non-Negotiable Warehouse Receipt. Columns: Quantity | Item | Description | Date | Lot | Net Weight | Gross Weight<br>
-          The <strong style="color:var(--text)">Lot</strong> column holds the 16-char IP pallet code (e.g. <span style="color:var(--accent2)">IP00331OT0000320</span>) — the flock is looked up automatically.
-          <strong style="color:var(--text)">Date</strong> is YYMMDD (<span style="color:var(--accent2)">260729</span> → 7/29/26) and becomes the Lay Date. Wrapped lot codes are re-joined automatically.
-        </div>
-        <div class="img-drop-zone" id="vtDropZone"
-          onclick="document.getElementById('vtFileInput').click()"
-          ondragover="handleImgDragOver(event,'vtDropZone')" ondragleave="handleImgDragLeave('vtDropZone')"
-          ondrop="handleCreatorDrop(event,'vertical')">
-          <input type="file" id="vtFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'vertical')">
-          <div class="img-drop-label"><strong>Drop the Vertical receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read directly from the text layer — no OCR, no misread digits</span></div>
-          <img id="vtImgPreview" class="img-preview"/>
-          <div class="scan-status" id="vtScanStatus"></div>
-        </div>
-        <div class="src-note" id="vtSrcNote"></div>
-        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-align:center;padding:6px 0 4px;">— or enter manually below (Lot / IP code TAB YYMMDD, one per line) —</div>
-        <textarea id="vtManualInput" placeholder="IP00331OT0000320&#9;260729&#10;IP00331OT0000318&#9;260730" style="height:100px;" oninput="onCreatorManualInput()"></textarea>
-      </div>
-
-      <!-- ── HE NORTH ── -->
-      <div id="input-henorth" style="display:none;">
-        <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);padding:14px 16px 0;line-height:1.6;">
-          Columns: Tag # | Egg Type | Lay Date. Tag format: <span style="color:var(--accent2)">CRITBA1 49406363</span> (letter prefix + space + number). Lay Date: M-D-YY. Flock prefix prepended.
-        </div>
-        <div class="img-drop-zone" id="hnDropZone"
-          onclick="document.getElementById('hnFileInput').click()"
-          ondragover="handleImgDragOver(event,'hnDropZone')" ondragleave="handleImgDragLeave('hnDropZone')"
-          ondrop="handleCreatorDrop(event,'henorth')">
-          <input type="file" id="hnFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'henorth')">
-          <div class="img-drop-label"><strong>Drop HE North tag image here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste</div>
-          <img id="hnImgPreview" class="img-preview"/>
-          <div class="scan-status" id="hnScanStatus"></div>
-        </div>
-        <div class="src-note" id="hnSrcNote"></div>
-        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-align:center;padding:6px 0 4px;">— or enter manually below (TagNumber TAB M-D-YY, one per line) —</div>
-        <textarea id="hnManualInput" placeholder="CRITBA1 49406363&#9;3-15-26&#10;CRITBA1 49406364&#9;3-15-26" style="height:100px;" oninput="onCreatorManualInput()"></textarea>
-      </div>
-
-    </div><!-- /input panel -->
-
-    <!-- Step 3: Generated lots -->
+    <!-- ④ Row editor -->
     <div class="created-lots-panel">
       <div class="created-lots-header">
-        <span class="label">③ Generated Item Tracking Lines</span>
-        <span class="badge" id="badge-created">0 lots</span>
-      </div>
-      <div id="createdLotsList" style="padding:0;">
-        <div class="created-lot-empty" style="padding:14px 16px;">Select a BOL source, enter data above, then lot numbers will appear here.</div>
-      </div>
-    </div>
-
-    <!-- Step 4: Column layout -->
-    <div class="created-lots-panel">
-      <div class="created-lots-header">
-        <span class="label">④ Paste Layout — drag to reorder</span>
-        <span class="badge" id="badge-cols">4 columns</span>
-      </div>
-      <div class="col-builder">
-        <div class="col-list" id="colList"></div>
-        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;">
-          <label style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:0.68rem;color:var(--muted);cursor:pointer;">
-            <input type="checkbox" id="setHeaderRow" onchange="rebuildCopyBox()" style="accent-color:var(--accent2);width:15px;height:15px;"/>
-            Include header row
-          </label>
-          <button class="col-move" onclick="resetColumns()" style="padding:5px 10px;">↺ Reset to BC template order</button>
+        <span class="label">④ Rows</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="rbtn" onclick="addCreatorRow()" style="padding:6px 11px;font-size:0.68rem;">+ Add row</button>
+          <button class="rbtn del" onclick="clearCreatorRows()" style="padding:6px 11px;font-size:0.68rem;">Delete all</button>
+          <span class="badge" id="badge-created">0 lots</span>
         </div>
       </div>
+      <div id="createdLotsList"></div>
     </div>
 
-    <!-- Copy actions -->
+    <!-- ⑤ Paste preview, with the column layout folded above it -->
+    <div class="created-lots-panel">
+      <div class="fold-head" id="fold-cols-head" onclick="toggleFold('cols')">
+        <span class="caret">▸</span>
+        <span class="label">Paste Layout</span>
+        <span class="fold-summary" id="foldColsSummary">4 columns</span>
+      </div>
+      <div class="fold-body" id="fold-cols-body">
+        <div class="col-builder">
+          <div style="font-family:var(--mono);font-size:0.64rem;color:var(--muted);margin-bottom:10px;">
+            Drag to reorder, or use ▲▼. Uncheck to leave a column out of the paste.
+          </div>
+          <div class="col-list" id="colList"></div>
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+            <label style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:0.68rem;color:var(--muted);cursor:pointer;">
+              <input type="checkbox" id="setHeaderRow" onchange="rebuildCopyBox()" style="accent-color:var(--accent2);width:15px;height:15px;"/>
+              Include header row when copying
+            </label>
+            <button class="rbtn" onclick="resetColumns()" style="padding:5px 10px;">↺ Reset to BC template order</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="created-lots-header" style="border-top:1px solid var(--border);">
+        <span class="label">⑤ Paste Preview</span>
+        <span class="badge" id="badge-preview">0 rows</span>
+      </div>
+      <div style="padding:14px 16px 16px;">
+        <div id="xlPreview"></div>
+        <div class="xl-caption" id="xlCaption"></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
     <div class="actions">
       <button class="btn btn-success" onclick="copyCreatedLots()">⧉ Copy for BC Paste</button>
       <button class="btn btn-primary" onclick="exportCreatorXlsx()">⬇ Export .xlsx</button>
-      <button class="btn btn-secondary" onclick="clearCreator()">✕ Clear</button>
+      <button class="btn btn-secondary" onclick="clearCreator()">✕ Clear All</button>
     </div>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:24px;display:none;" id="creatorCopyBox">
-      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:6px;letter-spacing:0.06em;text-transform:uppercase;" id="creatorCopyLabel">📋 Ready to paste into BC Item Tracking Lines (tab-separated)</div>
-      <div class="big-copy-area" id="createdLotsBox" onclick="copyCreatedLots()" style="max-height:260px;">—</div>
+    <!-- Raw tab-separated buffer — what actually goes on the clipboard -->
+    <div class="created-lots-panel">
+      <div class="fold-head" id="fold-raw-head" onclick="toggleFold('raw')">
+        <span class="caret">▸</span>
+        <span class="label">Raw Clipboard Text</span>
+        <span class="fold-summary">tab-separated, exactly what gets copied</span>
+      </div>
+      <div class="fold-body" id="fold-raw-body">
+        <div style="padding:12px 16px;">
+          <div class="big-copy-area" id="createdLotsBox" onclick="copyCreatedLots()" style="max-height:240px;">—</div>
+        </div>
+      </div>
     </div>
 
   </div><!-- end tab-creator -->
@@ -772,6 +893,123 @@ function setStatus(type, msg) {
   el.className = 'sync-status' + (type ? ' ' + type : '');
 }
 
+
+// ── Shared UI: collapsible panels ─────────────────────────────────
+function togglePanel(id) {
+  const p = document.getElementById(id);
+  if (p) p.classList.toggle('collapsed');
+}
+
+// ── Shared UI: Excel-style sheet preview ──────────────────────────
+// Renders exactly what will land in the spreadsheet — column letters, row
+// numbers, one cell per value, right-aligned numbers and dates — so the shape
+// of the paste is obvious before it happens. The clipboard always reads from
+// this same data array, never from the DOM, so what you see is what you get.
+//
+// columns: [{ name, kind }]  kind: 'txt' | 'num' | 'date' | 'bool' | 'key'
+// rows:    [[value, ...], ...]
+const SHEET_CACHE = {};   // containerId -> { columns, rows }
+
+
+function renderSheet(containerId, columns, rows, emptyMsg) {
+  SHEET_CACHE[containerId] = { columns, rows };
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  if (!columns.length || !rows.length) {
+    el.innerHTML = '<div class="sheet-empty">' + escHtml(emptyMsg || 'Nothing to paste yet.') + '</div>';
+    return;
+  }
+
+  let h = '<div class="sheet-wrap"><table class="sheet"><thead>';
+  h += '<tr class="letters"><th class="rownum"></th>';
+  columns.forEach((c, i) => { h += '<th>' + colLetter(i) + '</th>'; });
+  h += '</tr><tr class="names"><th class="rownum">#</th>';
+  columns.forEach(c => { h += '<th>' + escHtml(c.name) + '</th>'; });
+  h += '</tr></thead><tbody>';
+
+  rows.forEach((r, ri) => {
+    h += '<tr><td class="rownum">' + (ri + 1) + '</td>';
+    columns.forEach((c, ci) => {
+      const v = r[ci];
+      h += '<td class="c-' + (c.kind || 'txt') + '">' + escHtml(v === '' || v == null ? '' : v) + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+
+  // Legend, only for the kinds actually present.
+  const kinds = new Set(columns.map(c => c.kind || 'txt'));
+  const bits = [];
+  if (kinds.has('key'))  bits.push('<span style="color:var(--accent2)"><b>lot number</b></span>');
+  if (kinds.has('bool')) bits.push('<span style="color:#5ba4d4"><b>true/false</b></span>');
+  if (kinds.has('num'))  bits.push('<span style="color:#e0a94a"><b>number</b></span>');
+  if (kinds.has('date')) bits.push('<span style="color:#a888e0"><b>date</b></span>');
+  h += '<div class="sheet-legend"><span>' + rows.length + ' row' + (rows.length === 1 ? '' : 's')
+     + ' × ' + columns.length + ' column' + (columns.length === 1 ? '' : 's') + '</span>'
+     + bits.join('') + '<span>Tab-separated on copy — one cell per column</span></div>';
+  el.innerHTML = h;
+}
+
+// Tab-separated text for whatever a sheet preview is currently showing.
+function sheetToText(containerId, includeHeader) {
+  const d = SHEET_CACHE[containerId];
+  if (!d || !d.rows.length) return '';
+  const lines = [];
+  if (includeHeader) lines.push(d.columns.map(c => c.name).join('\t'));
+  d.rows.forEach(r => lines.push(r.map(v => (v == null ? '' : String(v))).join('\t')));
+  return lines.join('\n');
+}
+
+function copySheet(containerId, includeHeader, btn) {
+  const text = sheetToText(containerId, includeHeader);
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    if (!btn) return;
+    const n = SHEET_CACHE[containerId].rows.length;
+    const o = btn.innerHTML;
+    btn.innerHTML = '✓ Copied ' + n + ' row' + (n === 1 ? '' : 's');
+    setTimeout(() => btn.innerHTML = o, 1900);
+  });
+}
+
+// ── Shared UI: drag-to-reorder over an array ──────────────────────
+// One generic implementation drives both the matcher pallet list and the
+// creator row list: caller supplies the array to mutate and a redraw callback.
+function makeReorderer(getArr, redraw, rootSel) {
+  const st = { from: null };
+  return {
+    start(e, i) {
+      st.from = i;
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) {}
+      e.currentTarget.classList.add('dragging');
+    },
+    over(e, i) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (st.from === null || st.from === i) return;
+      e.currentTarget.classList.remove('drop-above', 'drop-below');
+      e.currentTarget.classList.add(i < st.from ? 'drop-above' : 'drop-below');
+    },
+    leave(e) { e.currentTarget.classList.remove('drop-above', 'drop-below'); },
+    end() {
+      st.from = null;
+      document.querySelectorAll(rootSel + ' tr').forEach(el =>
+        el.classList.remove('dragging', 'drop-above', 'drop-below'));
+    },
+    drop(e, i) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drop-above', 'drop-below');
+      if (st.from === null || st.from === i) { st.from = null; return; }
+      const arr = getArr();
+      const moved = arr.splice(st.from, 1)[0];
+      arr.splice(i, 0, moved);
+      st.from = null;
+      redraw();
+    }
+  };
+}
 
 // ── Tab Switching ─────────────────────────────────────────────────
 function switchTab(tab) {
@@ -1676,8 +1914,13 @@ function onCreatorManualInput() {
 //   - rawPackId     : present for coldzone entries only; canonical key
 // For non-coldzone sources, dedup key is the prefixed lot (as before).
 function mergeCreatorEntries(newEntries) {
-  // Build the existing map using whichever key is canonical for each entry.
-  const keyOf = (e) => (e.rawPackId !== undefined) ? 'pid:' + e.rawPackId : 'lot:' + e.lot;
+  // Rows the user built by hand key on their own identity, not their contents.
+  // Two freshly-added blank rows both have lot === '' and would otherwise
+  // collapse onto the same map key, silently destroying one of them.
+  const keyOf = (e) => {
+    if (e.lotManual || !e.lot) return 'uid:' + entryUid(e);
+    return (e.rawPackId !== undefined) ? 'pid:' + e.rawPackId : 'lot:' + e.lot;
+  };
   const existing = new Map(creatorEntries.map(e => [keyOf(e), e]));
 
   newEntries.forEach(e => {
@@ -1722,6 +1965,7 @@ function mergeCreatorEntries(newEntries) {
 function refreshColdZoneLots() {
   creatorEntries = creatorEntries.map(e => {
     if (e.rawPackId === undefined) return e;
+    if (e.lotManual) return e;          // user typed this one — leave it alone
     const lot = buildColdZoneLot(e.rawPackId, czFlockCode);
     return {
       ...e,
@@ -1731,133 +1975,97 @@ function refreshColdZoneLots() {
   });
 }
 
-// ── Render results table ──────────────────────────────────────────
+// ── Collapsible sections ──────────────────────────────────────────
+function toggleFold(name) {
+  const head = document.getElementById('fold-' + name + '-head');
+  const body = document.getElementById('fold-' + name + '-body');
+  if (!head || !body) return;
+  const open = !body.classList.contains('open');
+  body.classList.toggle('open', open);
+  head.classList.toggle('open', open);
+}
+
+// ── Row editor ────────────────────────────────────────────────────
+// Rows are fully hand-editable: the lot number, the lay date and the quantity
+// are all inputs, and rows can be added, deleted and dragged into any order.
+// Order matters because it's the order that lands in BC.
+
 function renderCreatorResults() {
   const list  = document.getElementById('createdLotsList');
-  const box   = document.getElementById('createdLotsBox');
   const badge = document.getElementById('badge-created');
-  const copyBox = document.getElementById('creatorCopyBox');
 
-  // Empty state
   if (!creatorEntries.length) {
-    const msg = !czFlockCode
-      ? 'Enter a flock code above (required for 7-digit Pack IDs; IP-prefixed Pack IDs look up their flock automatically), then add pallet data via screenshot or manual entry.'
-      : 'No lots generated yet. Add data via screenshot or manual entry above.';
-    list.innerHTML = '<div class="created-lot-empty" style="padding:14px 16px">' + msg + '</div>';
+    list.innerHTML = '<div class="created-lot-empty" style="padding:18px 16px;line-height:1.7">'
+      + 'No rows yet. Drop a receipt PDF above, paste rows into the text box, '
+      + 'or hit <strong style="color:var(--accent)">+ Add row</strong> to type one in by hand.</div>';
     badge.textContent = '0 lots'; badge.className = 'badge';
-    box.textContent = '—'; copyBox.style.display = 'none';
     renderColumnBuilder();
+    rebuildCopyBox();
     updateCreatorBadge();
     return;
   }
 
-  badge.textContent = creatorEntries.length + ' lots';
+  badge.textContent = creatorEntries.length + (creatorEntries.length === 1 ? ' lot' : ' lots');
   badge.className = 'badge loaded';
-  copyBox.style.display = 'block';
 
-  // Build table rows
-  const uncertain = creatorEntries.filter(e => e.dateUncertain).length;
-  const pending   = creatorEntries.filter(e => e.lotPending).length;
-  const ambiguous = creatorEntries.filter(e => e.verify && e.verify.status === 'ambiguous').length;
-  const corrected = creatorEntries.filter(e => e.verify && e.verify.status === 'corrected').length;
-  const unknown   = creatorEntries.filter(e => e.verify && e.verify.status === 'unknown').length;
-  const outliers  = creatorEntries.filter(e => e.verify && e.verify.status === 'outlier').length;
+  // Rows worth a second look get a subtle amber edge — no extra column, just a
+  // marker the eye can skip past when everything is fine.
+  const flaggedCount = creatorEntries.filter(e => rowFlag(e)).length;
 
-  let tableHtml = '<table class="created-lots-table"><thead><tr>'
-    + '<th>BC Lot Number</th><th>Verification</th><th>Lay Date</th><th>Qty (Base)</th><th></th>'
+  let html = '<div class="rows-scroll"><table class="rows-table"><thead><tr>'
+    + '<th style="width:30px"></th><th style="width:30px">#</th>'
+    + '<th>BC Lot Number</th><th style="width:120px">Lay Date</th>'
+    + '<th style="width:100px">Qty (Base)</th><th style="width:118px">Move</th><th style="width:34px"></th>'
     + '</tr></thead><tbody>';
+
   creatorEntries.forEach((entry, i) => {
-    const warnClass = entry.dateUncertain ? ' uncertain' : '';
-    const warnIcon  = entry.dateUncertain ? '<span style="color:var(--warn);margin-right:4px;" title="Date uncertain — please verify">⚠</span>' : '';
-    const pendIcon  = entry.lotPending ? '<span style="color:var(--warn);margin-right:4px;" title="Awaiting flock prefix">⚠</span>' : '';
-    const lotColor  = entry.lotPending ? 'var(--warn)' : 'var(--accent2)';
-    const safeDate  = escAttr(entry.date);
-    tableHtml += '<tr>'
-      + '<td style="color:' + lotColor + ';font-weight:600">' + pendIcon + escHtml(entry.lot) + '</td>'
-      + '<td>' + verifyCellHtml(entry, i) + '</td>'
-      + '<td>' + warnIcon + '<input class="creator-date-input' + warnClass + '" value="' + safeDate + '" data-idx="' + i + '" oninput="updateEntryDate(this)"/></td>'
-      + '<td><input class="creator-num-input" type="number" value="' + escAttr(String(entry.qty)) + '" data-idx="' + i + '" oninput="updateEntryQty(this)"/></td>'
-      + '<td><button class="copy-btn" onclick="copyRow(this,' + i + ')">copy</button></td>'
+    const flag = rowFlag(entry);
+    html += '<tr draggable="true" class="' + (flag ? 'flagged' : '') + '"'
+      + ' ondragstart="rowDragStart(event,' + i + ')" ondragover="rowDragOver(event,' + i + ')"'
+      + ' ondragleave="rowDragLeave(event)" ondrop="rowDrop(event,' + i + ')" ondragend="rowDragEnd(event)"'
+      + (flag ? ' title="' + escAttr(flag) + '"' : '') + '>'
+      + '<td class="rgrip" title="Drag to reorder">⠿</td>'
+      + '<td class="rnum">' + (i + 1) + '</td>'
+      + '<td><input class="lot-input' + (entry.lotPending ? ' pending' : '') + '" value="' + escAttr(entry.lot)
+        + '" data-idx="' + i + '" oninput="updateEntryLot(this)" spellcheck="false"/></td>'
+      + '<td><input class="creator-date-input' + (entry.dateUncertain ? ' uncertain' : '') + '" value="'
+        + escAttr(entry.date) + '" data-idx="' + i + '" oninput="updateEntryDate(this)" placeholder="M/D/YY"/></td>'
+      + '<td><input class="creator-num-input" type="number" value="' + escAttr(String(entry.qty))
+        + '" data-idx="' + i + '" oninput="updateEntryQty(this)"/></td>'
+      + '<td>'
+        + '<button class="rbtn" onclick="moveRow(' + i + ',-1)" ' + (i === 0 ? 'disabled' : '') + ' title="Move up">▲</button> '
+        + '<button class="rbtn" onclick="moveRow(' + i + ',1)" ' + (i === creatorEntries.length - 1 ? 'disabled' : '') + ' title="Move down">▼</button> '
+        + '<button class="rbtn" onclick="duplicateRow(' + i + ')" title="Duplicate this row">⧉</button>'
+      + '</td>'
+      + '<td><button class="rbtn del" onclick="deleteRow(' + i + ')" title="Delete this row">✕</button></td>'
       + '</tr>';
   });
-  tableHtml += '</tbody></table>';
+  html += '</tbody></table></div>';
 
-  let banners = '';
-  if (ambiguous) {
-    banners += '<div class="banner warn">⚠ <strong>' + ambiguous + ' row(s) could be more than one pallet ID.</strong> '
-      + 'The ID that was read isn\u2019t in the pallet table, and several real IDs are a single digit away from it — '
-      + 'so the correction below is a guess. <strong>Read these against the receipt carefully</strong> and pick the right one from the dropdown before pasting into BC.</div>';
+  let banner = '';
+  if (flaggedCount) {
+    banner = '<div class="banner warn">⚠ <strong>' + flaggedCount + ' row(s) marked with an amber edge.</strong> '
+      + 'Hover a row to see why. These still copy and export normally — the mark is only a nudge to check them against the receipt.</div>';
   }
-  if (corrected) {
-    banners += '<div class="banner info">ⓘ ' + corrected + ' row(s) were auto-corrected to the nearest real pallet ID. '
-      + 'Hover the badge to see what changed — these are high-confidence but still worth a glance.</div>';
-  }
-  if (outliers) {
-    banners += '<div class="banner warn">⚠ <strong>' + outliers + ' row(s) are real pallet IDs but sit outside this load\u2019s run.</strong> '
-      + 'The other pallets on this receipt are closely numbered and these are not \u2014 which usually means a digit was misread and happened to land on a different real pallet. '
-      + '<strong>These cannot be auto-corrected</strong>, because the ID is genuinely valid. Read them off the receipt yourself.</div>';
-  }
-  if (unknown) {
-    banners += '<div class="banner warn">⚠ ' + unknown + ' row(s) aren\u2019t in the pallet table and have no near match. '
-      + 'Either several digits were misread, or the pallet was printed after the last table refresh. They will still paste — verify them first.</div>';
-  }
-  if (pending) {
-    banners += '<div class="banner warn">⚠ ' + pending + ' row(s) waiting on a flock prefix — enter one above to complete them.</div>';
-  }
-  if (uncertain) {
-    banners += '<div class="banner warn">⚠ ' + uncertain + ' date(s) could not be read — please fill in the highlighted fields before copying.</div>';
-  }
-  list.innerHTML = banners + tableHtml;
+  list.innerHTML = banner + html;
 
   renderColumnBuilder();
   rebuildCopyBox();
   updateCreatorBadge();
 }
 
-// The Verification cell. Ambiguous rows get a real dropdown so the user resolves
-// the call themselves rather than trusting a coin-flip correction.
-function verifyCellHtml(entry, i) {
+// One-line reason a row deserves a glance, or '' if it looks fine. Replaces the
+// old Verification column — same checks, just out of the way.
+function rowFlag(entry) {
+  if (entry.lotPending)    return 'Waiting on a fallback flock code — this lot is incomplete.';
+  if (entry.dateUncertain) return 'Lay date could not be read. Fill it in.';
   const v = entry.verify;
-  if (!v) return '<span class="vfy plain" title="Entered manually — not checked">—</span>';
-
-  if (v.status === 'ok')    return '<span class="vfy ok" title="' + escAttr(v.note) + '">✓ verified</span>';
-  if (v.status === 'plain') return '<span class="vfy plain" title="' + escAttr(v.note) + '">— not checked</span>';
-  if (v.status === 'outlier') {
-    return '<span class="vfy unknown" title="' + escAttr(v.note) + '">⚠ off-run — check</span>';
-  }
-  if (v.status === 'unknown') {
-    return '<span class="vfy unknown" title="' + escAttr(v.note) + '">? not in table</span>';
-  }
-  if (v.status === 'corrected') {
-    return '<span class="vfy fixed" title="' + escAttr(v.note) + '">⟳ ' + escHtml(v.original) + ' → fixed</span>';
-  }
-  // Ambiguous — offer every candidate, plus the raw reading.
-  const opts = v.candidates.slice(0, 8).map(c =>
-    '<option value="' + escAttr(c.packId) + '"' + (c.packId === entry.rawPackId ? ' selected' : '') + '>'
-    + escHtml(c.packId) + '  (flock ' + escHtml(String(c.flock)) + ', digit ' + (c.pos + 1) + ' ' + c.from + '→' + c.to + ')'
-    + '</option>'
-  ).join('');
-  return '<span class="vfy ambiguous" title="' + escAttr(v.note) + '">⚠ ' + v.candidates.length + ' possible</span>'
-    + '<br><select class="cand-select" data-idx="' + i + '" onchange="pickCandidate(this)">' + opts
-    + '<option value="' + escAttr(v.original) + '">keep as read: ' + escHtml(v.original) + '</option></select>';
-}
-
-// User resolved an ambiguous row by hand — lock it in and stop warning about it.
-function pickCandidate(sel) {
-  const i = parseInt(sel.dataset.idx);
-  const entry = creatorEntries[i];
-  if (!entry) return;
-  entry.rawPackId = sel.value;
-  const lot = buildColdZoneLot(entry.rawPackId, czFlockCode);
-  entry.lot = lot !== null ? lot : entry.rawPackId;
-  entry.lotPending = lot === null;
-  entry.verify = {
-    status: lookupIpFlock(entry.rawPackId) ? 'ok' : 'unknown',
-    packId: entry.rawPackId, original: entry.verify ? entry.verify.original : entry.rawPackId,
-    candidates: [],
-    note: 'Chosen by hand from the receipt'
-  };
-  renderCreatorResults();
+  if (!v) return '';
+  if (v.status === 'ambiguous') return 'Read as ' + v.original + '. Several real pallet IDs are one digit away — verify against the receipt.';
+  if (v.status === 'corrected') return 'Read as ' + v.original + ', auto-corrected to ' + v.packId + '.';
+  if (v.status === 'outlier')   return v.note;
+  if (v.status === 'unknown')   return 'Not found in the pallet table and no near match — verify against the receipt.';
+  return '';
 }
 
 // Small escapers so lot strings and dates can't break out of the markup.
@@ -1866,6 +2074,27 @@ function escHtml(s) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function escAttr(s) { return escHtml(s).replace(/"/g,'&quot;'); }
+
+// ── Cell edits ────────────────────────────────────────────────────
+// Cell handlers deliberately avoid a full re-render: rebuilding the table mid
+// keystroke would destroy the caret. They update state and refresh the preview.
+
+function updateEntryLot(input) {
+  const i = parseInt(input.dataset.idx);
+  const entry = creatorEntries[i];
+  if (!entry) return;
+  const val = input.value.trim().toUpperCase();
+  entry.lot = val;
+  entry.lotManual = true;          // stop refreshColdZoneLots overwriting it
+  entry.lotPending = !val;
+  entry.verify = null;             // a hand-typed lot is the user's call, not ours
+  // Keep rawPackId in step so the optional Pack ID / Flock columns stay right.
+  const dash = val.indexOf('-');
+  const tail = dash > 0 ? val.slice(dash + 1) : val;
+  entry.rawPackId = isIpPackId(tail) || /^\d{7}$/.test(tail) ? tail : undefined;
+  input.className = 'lot-input' + (entry.lotPending ? ' pending' : '');
+  rebuildCopyBox();
+}
 
 function updateEntryDate(input) {
   const i = parseInt(input.dataset.idx);
@@ -1888,6 +2117,84 @@ function updateEntryQty(input) {
   rebuildCopyBox();
 }
 
+// ── Add / delete / duplicate / reorder ────────────────────────────
+// Stable per-row identity, assigned lazily. Only hand-made rows need one.
+let _uidSeq = 0;
+function entryUid(e) {
+  if (e._uid === undefined) e._uid = ++_uidSeq;
+  return e._uid;
+}
+
+function addCreatorRow() {
+  creatorEntries.push({
+    _uid: ++_uidSeq,
+    lot: '', lotManual: true, lotPending: true,
+    date: '', dateUncertain: true,
+    qty: creatorSettings.qty, qtyEdited: false,
+    verify: null
+  });
+  renderCreatorResults();
+  // Drop the caret straight into the new lot field so typing just works.
+  const inputs = document.querySelectorAll('#createdLotsList .lot-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function deleteRow(i) {
+  creatorEntries.splice(i, 1);
+  renderCreatorResults();
+}
+
+function duplicateRow(i) {
+  const src = creatorEntries[i];
+  if (!src) return;
+  creatorEntries.splice(i + 1, 0, { ...src, _uid: ++_uidSeq, verify: null, lotManual: true });
+  renderCreatorResults();
+}
+
+function clearCreatorRows() {
+  if (creatorEntries.length > 1 &&
+      !confirm('Delete all ' + creatorEntries.length + ' rows? Your source file and settings stay put.')) return;
+  creatorEntries = [];
+  renderCreatorResults();
+}
+
+function moveRow(i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= creatorEntries.length) return;
+  const tmp = creatorEntries[i];
+  creatorEntries[i] = creatorEntries[j];
+  creatorEntries[j] = tmp;
+  renderCreatorResults();
+}
+
+let rowDragIdx = null;
+function rowDragStart(e, i) {
+  // Don't hijack a drag that started inside a text field.
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) { e.preventDefault(); return; }
+  rowDragIdx = i;
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) {}
+  e.currentTarget.classList.add('dragging');
+}
+function rowDragOver(e, i) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (rowDragIdx !== null && rowDragIdx !== i) e.currentTarget.classList.add('drop-target');
+}
+function rowDragLeave(e) { e.currentTarget.classList.remove('drop-target'); }
+function rowDragEnd(e) {
+  rowDragIdx = null;
+  document.querySelectorAll('.rows-table tbody tr').forEach(el => el.classList.remove('dragging','drop-target'));
+}
+function rowDrop(e, i) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-target');
+  if (rowDragIdx === null || rowDragIdx === i) return;
+  const moved = creatorEntries.splice(rowDragIdx, 1)[0];
+  creatorEntries.splice(i, 0, moved);
+  rowDragIdx = null;
+  renderCreatorResults();
+}
 // ── BC row construction ───────────────────────────────────────────
 // Returns the value for one column key of one entry. `raw` = true yields
 // native types (boolean / number / Date) for the XLSX export; `raw` = false
@@ -1925,8 +2232,6 @@ function activeColumns() {
 function renderColumnBuilder() {
   const list = document.getElementById('colList');
   if (!list) return;
-  const on = activeColumns().length;
-  document.getElementById('badge-cols').textContent = on + (on === 1 ? ' column' : ' columns');
 
   list.innerHTML = creatorColumns.map((c, i) => {
     const def = COLUMN_CATALOG[c.key];
@@ -1948,6 +2253,9 @@ function toggleColumn(i) {
   renderColumnBuilder();
   rebuildCopyBox();
 }
+
+// refreshColdZoneLots must never clobber a hand-typed lot number.
+function isLotLocked(e) { return !!e.lotManual; }
 
 function moveColumn(i, delta) {
   const j = i + delta;
@@ -1994,26 +2302,108 @@ function colDrop(e, i) {
   rebuildCopyBox();
 }
 
-// ── Clipboard buffer ──────────────────────────────────────────────
+// ── Paste preview ─────────────────────────────────────────────────
+// Two views of the same thing: an Excel-looking grid so the user can see exactly
+// what will land in which column, and the raw tab-separated string that is what
+// actually goes on the clipboard.
+
+// Spreadsheet column letters: A, B, ... Z, AA, AB, ...
+function colLetter(n) {
+  let s = '';
+  n += 1;
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 function rebuildCopyBox() {
-  const box   = document.getElementById('createdLotsBox');
-  const label = document.getElementById('creatorCopyLabel');
-  const cols  = activeColumns();
-  const rows  = exportableEntries();
+  const box  = document.getElementById('createdLotsBox');
+  const cols = activeColumns();
+  const rows = exportableEntries();
+  const includeHeader = !!(document.getElementById('setHeaderRow') && document.getElementById('setHeaderRow').checked);
 
-  if (label) {
-    label.textContent = cols.length
-      ? '📋 Paste into BC Item Tracking Lines — ' + cols.map(c => COLUMN_CATALOG[c.key].name).join(' | ')
-      : '📋 Select at least one column below';
-  }
-  if (!rows.length || !cols.length) { box.textContent = '—'; return; }
-
+  // Raw clipboard buffer
   const lines = [];
-  if (document.getElementById('setHeaderRow') && document.getElementById('setHeaderRow').checked) {
-    lines.push(cols.map(c => COLUMN_CATALOG[c.key].name).join('\t'));
-  }
+  if (includeHeader) lines.push(cols.map(c => COLUMN_CATALOG[c.key].name).join('\t'));
   rows.forEach(e => lines.push(cols.map(c => cellValue(e, c.key, false)).join('\t')));
-  box.textContent = lines.join('\n');
+  if (box) box.textContent = (rows.length && cols.length) ? lines.join('\n') : '—';
+
+  renderXlPreview(cols, rows, includeHeader);
+  updateFoldSummaries();
+}
+
+function renderXlPreview(cols, rows, includeHeader) {
+  const host    = document.getElementById('xlPreview');
+  const caption = document.getElementById('xlCaption');
+  const badge   = document.getElementById('badge-preview');
+  if (!host) return;
+
+  if (badge) {
+    badge.textContent = rows.length + (rows.length === 1 ? ' row' : ' rows');
+    badge.className = rows.length ? 'badge loaded' : 'badge';
+  }
+
+  if (!rows.length || !cols.length) {
+    host.innerHTML = '<div class="xl-frame"><div class="xl-bar"><span class="xl-tab">Item Tracking Lines</span></div>'
+      + '<div class="xl-empty">' + (cols.length
+          ? 'Nothing to paste yet — add rows above.'
+          : 'No columns selected. Open <strong>Paste Layout</strong> and tick at least one.')
+      + '</div></div>';
+    if (caption) caption.textContent = '';
+    return;
+  }
+
+  // Header letter row — the same letters the user will see in Excel/BC.
+  let html = '<div class="xl-frame">'
+    + '<div class="xl-bar"><span class="xl-tab">Item Tracking Lines</span>'
+    + '<span class="xl-meta">' + rows.length + ' × ' + cols.length + '</span></div>'
+    + '<div class="xl-scroll"><table class="xl-grid"><thead>'
+    + '<tr><th class="xl-rownum xl-col"></th>'
+    + cols.map((c, i) => '<th class="xl-col">' + colLetter(i) + '</th>').join('')
+    + '</tr>'
+    + '<tr><th class="xl-rownum">' + (includeHeader ? '1' : '') + '</th>'
+    + cols.map(c => '<th class="xl-hdr">' + escHtml(COLUMN_CATALOG[c.key].name) + '</th>').join('')
+    + '</tr></thead><tbody>';
+
+  rows.forEach((e, r) => {
+    // Row numbering mirrors Excel: data starts at 2 when a header row is copied.
+    const rowNo = includeHeader ? r + 2 : r + 1;
+    html += '<tr><td class="xl-rownum">' + rowNo + '</td>'
+      + cols.map(c => {
+          const v = cellValue(e, c.key, false);
+          const cls = c.key === 'qty' ? ' class="num"' : (c.key === 'avail' ? ' class="bool"' : '');
+          return '<td' + cls + '>' + escHtml(v) + '</td>';
+        }).join('')
+      + '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  host.innerHTML = html;
+
+  if (caption) {
+    caption.innerHTML = 'This is exactly what lands in BC, left to right. Column '
+      + '<strong>A</strong> maps to the first Item Tracking Lines field, <strong>B</strong> to the second, and so on. '
+      + (includeHeader
+          ? 'The header row <strong>is</strong> included in the copy — turn that off in Paste Layout if you\u2019re pasting straight onto an existing grid.'
+          : 'The header row is shown for orientation only and is <strong>not</strong> copied.');
+  }
+}
+
+// Keep the folded panels' one-line summaries honest so nothing important is
+// hidden behind a collapsed header.
+function updateFoldSummaries() {
+  const cs = document.getElementById('foldColsSummary');
+  if (cs) {
+    const on = activeColumns();
+    cs.textContent = on.length
+      ? on.length + (on.length === 1 ? ' column: ' : ' columns: ') + on.map(c => COLUMN_CATALOG[c.key].name).join(', ')
+      : 'no columns selected';
+    cs.style.color = on.length ? '' : 'var(--warn)';
+  }
+  const fs = document.getElementById('foldFlockSummary');
+  if (fs) fs.textContent = czFlockCode ? czFlockCode : 'not set';
 }
 
 function updateCreatorBadge() {
@@ -2030,14 +2420,6 @@ function copyCreatedLots() {
     const btns = document.querySelectorAll('#tabContent-creator .btn-success');
     btns.forEach(btn => { const o=btn.innerHTML; btn.innerHTML='✓ Copied!'; setTimeout(()=>btn.innerHTML=o,1800); });
   });
-}
-
-// Copy a single row using the same column layout as the main buffer.
-function copyRow(btn, i) {
-  const e = creatorEntries[i];
-  if (!e) return;
-  const text = activeColumns().map(c => cellValue(e, c.key, false)).join('\t');
-  copySingle(btn, text);
 }
 
 // ── XLSX export ───────────────────────────────────────────────────
@@ -2088,7 +2470,7 @@ function clearCreator() {
   czFlockCode = '';
   // Cold Zone
   document.getElementById('czFlockInput').value = '';
-  document.getElementById('czFlockPreview').textContent = 'Enter a flock code to preview lot format';
+  document.getElementById('czFlockPreview').textContent = 'Not needed for IP Pack IDs — their flock is looked up automatically';
   document.getElementById('czImgPreview').style.display = 'none';
   document.getElementById('czScanStatus').textContent = '';
   document.getElementById('czFileInput').value = '';
@@ -2674,7 +3056,10 @@ function clearAll() {
 // column builder so the layout is visible before any data is loaded.
 document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('setQty')) onSettingsChange();
+  const desc = document.getElementById('srcDescription');
+  if (desc) desc.textContent = BOL_DESCRIPTIONS[bolSource];
   renderColumnBuilder();
+  renderCreatorResults();
 });
 </script>
 </body>
