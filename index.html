@@ -73,14 +73,31 @@ function normIp(raw) {
   if (typeof fn === 'function') { try { return fn(raw, false); } catch (e) {} }
   return localNormalizeIp(raw);
 }
+// Judge the token as it was printed, before stripping punctuation. A weight of
+// "1,650.00" collapses to 165000 and a lay date of "5/25/2026" to 5252026 —
+// both land squarely inside the 5-9 digit pallet range. Neither is a pallet ID,
+// and the only surviving evidence of that is the punctuation, so this test has
+// to run first. Real pallet IDs never carry a separator.
+const DATE_TOKEN = /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/;
 function asPalletId(raw) {
   if (!raw) return null;
-  const clean = String(raw).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/[.,\/]/.test(s)) return null;   // money, decimals, dates
+  if (DATE_TOKEN.test(s)) return null;
+  const clean = s.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   if (!clean) return null;
   const ip = normIp(clean);
   if (ip) return ip;
   if (/^\d{5,9}$/.test(clean)) return clean;
   return null;
+}
+
+// Pallet columns are homogeneous — every value the same shape. A stray shipment
+// number or customer code that happens to sit in the same x band is a different
+// shape, so the minority shape gets dropped rather than pasted into BC.
+function idShape(pid) {
+  return (pid.length === 16 && pid.slice(0, 2) === 'IP') ? 'ip' : 'n' + pid.length;
 }
 // A fragment of a wrapped IP code, e.g. "IP00331OT00" sitting above "00396".
 function looksLikeIpHead(s) {
@@ -238,13 +255,26 @@ function findColumns(rows) {
   });
 
   const built = cols
+    .map(c => {
+      // Keep only the dominant shape before anything else is measured.
+      const tally = {};
+      c.hits.forEach(h => { const k = idShape(h.id); tally[k] = (tally[k] || 0) + 1; });
+      let shape = null, best = 0;
+      Object.keys(tally).forEach(k => { if (tally[k] > best) { best = tally[k]; shape = k; } });
+      c.shape = shape;
+      c.hits = c.hits.filter(h => idShape(h.id) === shape);
+      return c;
+    })
     .filter(c => c.hits.length >= 3)          // three in a line is a column, two is a coincidence
     .map(c => {
       c.x0 = Math.min(...c.hits.map(h => h.x0));
       c.x1 = Math.max(...c.hits.map(h => h.x1));
       c.header = headerAbove(rows, c);
       c.isPalletId = /pallet\s*id/i.test(c.header);
-      c.score = c.hits.length + headerBonus(c.header);
+      // Score on distinct values. A column of weights repeats itself endlessly
+      // and would otherwise out-count a real pallet list on raw hits alone.
+      c.uniq = new Set(c.hits.map(h => h.id)).size;
+      c.score = c.uniq + headerBonus(c.header);
       return c;
     })
     .sort((a, b) => b.score - a.score);
@@ -296,7 +326,7 @@ function headerBonus(h) {
   if (/reference/.test(s)) b += 4;
   if (/tag/.test(s)) b += 2;
   if (/^lot|[\s|]lot/.test(s)) b -= 8;  // hand-keyed: farm names and dates land here
-  if (/weight|seal|order|qty|quantity/.test(s)) b -= 6;
+  if (/weight|\bwt\b|\bwgt\b|seal|order|qty|quantity/.test(s)) b -= 6;
   return b;
 }
 
@@ -400,7 +430,7 @@ async function extractPalletTable(file, opts) {
     return {
       pallets: [], chosen: null, stated: statedCount(pages), _pages: pages,
       pages: pages.map(p => summarisePage(p, [])),
-      warnings: ['No column of pallet IDs found. Pick a page below or paste the IDs in.'],
+      warnings: ['No column of pallet IDs found. Pick a page below or paste the IDs in.'], notes: [],
       exact: pages.every(p => p.source === 'text')
     };
   }
@@ -417,6 +447,23 @@ async function extractPalletTable(file, opts) {
     const sameTitle = title && pageTitle(c.page) === title;
     if (sameHeader || sameTitle) useIds.push(c.page.num);
   });
+
+  // Overflow pages usually carry no header at all — the table just keeps going.
+  // Those are recognised by position instead: touching the winning page, same
+  // value shape, and a column sitting in the same place across the width.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    cands.forEach(c => {
+      if (useIds.indexOf(c.page.num) !== -1) return;
+      if (!useIds.some(n => Math.abs(c.page.num - n) === 1)) return;
+      if (c.col.shape !== win.col.shape) return;
+      const overlap = Math.max(0, Math.min(win.col.x1, c.col.x1) - Math.max(win.col.x0, c.col.x0));
+      const span = Math.max(win.col.x1 - win.col.x0, c.col.x1 - c.col.x0) || 1;
+      if (overlap / span > 0.6) { useIds.push(c.page.num); grew = true; }
+    });
+  }
+  useIds.sort((a, b) => a - b);
 
   return finalise(pages, useIds, opts);
 }
@@ -437,17 +484,24 @@ function finalise(pages, useIds, opts) {
 
   const stated = statedCount(pages);
   const exact = used.every(p => p.source === 'text');
-  const warnings = [];
+  const warnings = [], notes = [];
+  const reconciles = stated && stated.count === pallets.length;
 
-  if (stated && stated.count !== pallets.length) {
+  if (stated && !reconciles) {
     warnings.push('The document says ' + stated.count + ' pallets (' + stated.sources[0] +
       '); this page gave ' + pallets.length + '. Check the page selection below.');
   }
-  if (dupes.length) warnings.push(dupes.length + ' duplicate ID' + (dupes.length > 1 ? 's' : '') + ' removed.');
+  if (dupes.length) {
+    // Cold Zone lists some pallets twice, once per farm of origin. When the
+    // total still reconciles, that is the document being itself, not an error.
+    const msg = dupes.length + ' pallet' + (dupes.length > 1 ? 's were' : ' was')
+      + ' listed more than once and counted once.';
+    (reconciles ? notes : warnings).push(msg);
+  }
   if (!exact) warnings.push('Some pages had no text layer and were read by OCR — spot-check the IDs.');
 
   return {
-    pallets, stated, exact, warnings, _pages: pages,
+    pallets, stated, exact, warnings, notes, _pages: pages,
     chosen: { pages: used.map(p => p.num), header: used.length ? used[0].columns[0].header : '' },
     pages: pages.map(p => summarisePage(p, useIds))
   };
@@ -459,7 +513,7 @@ function summarisePage(p, useIds) {
     num: p.num,
     label: pageLabel(p),
     header: col ? col.header : '',
-    idCount: col ? col.hits.length : 0,
+    idCount: col ? (col.uniq || col.hits.length) : 0,
     source: p.source,
     used: useIds.indexOf(p.num) !== -1
   };
@@ -1210,14 +1264,14 @@ global.PalletTable = { extractPalletTable, extractFromPages, asPalletId };
         <!-- Fallback flock — folded away, since IP codes resolve themselves -->
         <div class="fold-head" id="fold-flock-head" onclick="toggleFold('flock')">
           <span class="caret">▸</span>
-          <span class="label">Fallback Flock Code</span>
-          <span class="fold-summary" id="foldFlockSummary">not set</span>
+          <span class="label">Flock Code Override</span>
+          <span class="fold-summary" id="foldFlockSummary">not set — using the pallet table</span>
         </div>
         <div class="fold-body" id="fold-flock-body">
           <div class="flock-input-wrap" style="padding:14px 16px;">
             <input type="text" class="flock-input" id="czFlockInput" maxlength="4" placeholder="3024"
               oninput="onCzFlockInput()" autocomplete="off" style="font-size:1.05rem;padding:8px 12px;"/>
-            <div class="flock-preview" id="czFlockPreview">Not needed for IP Pack IDs — their flock is looked up automatically</div>
+            <div class="flock-preview" id="czFlockPreview">Leave blank to use each pallet’s own flock from the pallet table</div>
           </div>
         </div>
       </div>
@@ -1678,7 +1732,7 @@ let creatorColumns = DEFAULT_COLUMNS.map(c => ({ ...c }));
 
 // Source descriptions shown below the selector
 const BOL_DESCRIPTIONS = {
-  coldzone:  'Cold Zone Warehouse Receipt. Columns: Pack ID | Cases | Plts | Item | Description | Prod | Exp | Lot No. | Weight. Pack ID → BC Lot (16-char IP codes auto-resolve their flock; 7-digit IDs use the prefix below). Prod → Lay Date; BC derives the expiration date itself.',
+  coldzone:  'Cold Zone Warehouse Receipt. Columns: Pack ID | Cases | Plts | Item | Description | Prod | Exp | Lot No. | Weight. Pack ID → BC Lot (16-char IP codes auto-resolve their flock; 7-digit IDs need the Flock Code box, which also overrides every row when set). Prod → Lay Date; BC derives the expiration date itself.',
   vertical:  'Vertical Cold Storage Warehouse Receipt. Columns: Quantity | Item | Description | Date | Lot | Net Weight | Gross Weight. The Lot column holds the 16-char IP pallet code — flock auto-resolved. Date is YYMMDD → Lay Date; BC derives the expiration date itself.',
   henorth:   'Printed/handwritten hybrid. Columns: Tag # | Egg Type | Lay Date. Tag format: CRITBA1 49406363. Lay Date: M-D-YY. Flock prefix prepended to lot.'
 };
@@ -1718,19 +1772,40 @@ function isIpPackId(s) {
 // Build the full Cold Zone lot string from a raw Pack ID and the
 // user-entered flock prefix. Returns null if we have a 7-digit Pack ID
 // but no prefix yet (caller decides how to handle that).
+// A typed flock code is an override, not just a fallback: when one is present
+// it is applied to every row, including pallets the lookup table already
+// resolved. The table reflects what was printed, which can be out of date or
+// simply wrong for a given load, and the person holding the paperwork gets the
+// final say. Clear the field and every row falls back to its looked-up flock.
 function buildColdZoneLot(rawPackId, userPrefix) {
+  if (userPrefix) {
+    if (rawPackId.startsWith(userPrefix + '-')) return rawPackId;
+    return userPrefix + '-' + rawPackId;
+  }
   if (isIpPackId(rawPackId)) {
     const mapped = lookupIpFlock(rawPackId);
     if (mapped) return mapped + '-' + rawPackId;
-    // Unknown IP code — fall back to userPrefix if available, else return
-    // the raw code so the user sees it and can intervene.
-    if (userPrefix) return userPrefix + '-' + rawPackId;
+    // Unknown IP code and no override — show the raw code so it's visible.
     return rawPackId;
   }
-  // Non-IP (7-digit) case — needs a prefix.
-  if (!userPrefix) return null;
-  if (rawPackId.startsWith(userPrefix + '-')) return rawPackId;
-  return userPrefix + '-' + rawPackId;
+  // Non-IP (7-digit) case — can't build a lot without a prefix.
+  return null;
+}
+
+// What the pallet table would have said for a row, or '' if it doesn't know.
+function lookedUpFlock(entry) {
+  if (!entry || entry.rawPackId === undefined) return '';
+  return isIpPackId(entry.rawPackId) ? (lookupIpFlock(entry.rawPackId) || '') : '';
+}
+
+// Rows whose flock the override is actively changing, as opposed to supplying.
+function overriddenRows() {
+  if (!czFlockCode) return [];
+  return creatorEntries.filter(e => {
+    if (e.lotManual) return false;
+    const look = lookedUpFlock(e);
+    return look && look !== czFlockCode;
+  });
 }
 
 // Returns just the flock/prefix portion of a built lot string, or ''.
@@ -2098,16 +2173,19 @@ function onCzFlockInput() {
   czFlockCode = val;
   const preview = document.getElementById('czFlockPreview');
   if (val) {
-    preview.innerHTML = 'Format: <span style="color:var(--accent2);font-weight:600">' + val + '-PALLETID</span> &nbsp; e.g. <span style="color:var(--accent2)">' + val + '-2361685</span>';
+    refreshColdZoneLots();   // recompute before counting what changed
+    const changed = overriddenRows().length;
+    preview.innerHTML = 'Every row becomes <span style="color:var(--accent2);font-weight:600">'
+      + escHtml(val) + '-PALLETID</span>'
+      + (changed ? ' &nbsp;·&nbsp; <span style="color:var(--warn);font-weight:600">' + changed
+          + ' row' + (changed === 1 ? '' : 's') + '</span> overridden from the pallet table' : '');
   } else {
-    preview.textContent = 'Not needed for IP Pack IDs — their flock is looked up automatically';
+    preview.textContent = 'Leave blank to use each pallet\u2019s own flock from the pallet table';
   }
-  // Re-apply prefix to any Cold Zone entries waiting on a flock code
-  // (7-digit Pack IDs). IP-based entries already have their flock resolved
-  // from the lookup and stay unchanged.
+  // Rebuild every row against the new code — including ones the lookup had
+  // already resolved, which is the whole point of the override.
   refreshColdZoneLots();
-  // Rebuild results if we already have scanned data
-  if (creatorEntries.length) renderCreatorResults();
+  renderCreatorResults();
 }
 
 // ── Drop zone / file handlers (unified for all sources) ───────────
@@ -2661,6 +2739,13 @@ function renderCreatorResults() {
   html += '</tbody></table></div>';
 
   let banner = '';
+  const ov = overriddenRows().length;
+  if (czFlockCode) {
+    banner += '<div class="banner info">Flock override <strong>' + escHtml(czFlockCode)
+      + '</strong> is applied to all ' + creatorEntries.length + ' row(s)'
+      + (ov ? ', replacing the pallet table\u2019s flock on <strong>' + ov + '</strong> of them' : '')
+      + '. Clear the Flock Code box to go back to the looked-up values.</div>';
+  }
   if (flaggedCount) {
     banner = '<div class="banner warn">⚠ <strong>' + flaggedCount + ' row(s) marked with an amber edge.</strong> '
       + 'Hover a row to see why. These still copy and export normally — the mark is only a nudge to check them against the receipt.</div>';
@@ -3021,7 +3106,13 @@ function updateFoldSummaries() {
     cs.style.color = on.length ? '' : 'var(--warn)';
   }
   const fs = document.getElementById('foldFlockSummary');
-  if (fs) fs.textContent = czFlockCode ? czFlockCode : 'not set';
+  if (fs) {
+    const ov = overriddenRows().length;
+    fs.textContent = czFlockCode
+      ? czFlockCode + ' on every row' + (ov ? ' · ' + ov + ' overridden' : '')
+      : 'not set — using the pallet table';
+    fs.style.color = czFlockCode ? 'var(--accent2)' : '';
+  }
 }
 
 function updateCreatorBadge() {
@@ -3088,7 +3179,7 @@ function clearCreator() {
   czFlockCode = '';
   // Cold Zone
   document.getElementById('czFlockInput').value = '';
-  document.getElementById('czFlockPreview').textContent = 'Not needed for IP Pack IDs — their flock is looked up automatically';
+  document.getElementById('czFlockPreview').textContent = 'Leave blank to use each pallet\u2019s own flock from the pallet table';
   document.getElementById('czImgPreview').style.display = 'none';
   document.getElementById('czScanStatus').textContent = '';
   document.getElementById('czFileInput').value = '';
@@ -3284,6 +3375,7 @@ function applyMatcherReport(rep) {
   dz.classList.remove('scanning', 'error-state');
   dz.classList.add('done');
   status.className = 'scan-status ' + (rep.warnings.length ? 'scanning' : 'done');
+  const okToVerify = !rep.warnings.length;
 
   const where = rep.chosen && rep.chosen.pages.length
     ? ' from page ' + rep.chosen.pages.join(', ')
@@ -3297,9 +3389,12 @@ function applyMatcherReport(rep) {
   if (rep.warnings.length && note) {
     note.className = 'src-note ocr';
     note.innerHTML = rep.warnings.map(escHtml).join('<br>');
+  } else if (rep.notes && rep.notes.length && note) {
+    note.className = 'src-note mixed';
+    note.innerHTML = rep.notes.map(escHtml).join('<br>');
   } else {
     // Clean read — hand off to the existing pallet-table cross-check.
-    showMatcherVerifyNote(ids, rep.exact);
+    if (okToVerify) showMatcherVerifyNote(ids, rep.exact);
   }
   renderPagePicker(rep);
 }
