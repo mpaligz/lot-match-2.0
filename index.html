@@ -1191,7 +1191,7 @@ global.PalletTable = { extractPalletTable, extractFromPages, asPalletId };
             ondragover="handleImgDragOver(event,'czDropZone')" ondragleave="handleImgDragLeave('czDropZone')"
             ondrop="handleCreatorDrop(event,'coldzone')">
             <input type="file" id="czFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'coldzone')">
-            <div class="img-drop-label"><strong>Drop the Cold Zone receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read from the text layer — no OCR, no misread digits</span></div>
+            <div class="img-drop-label"><strong>Drop the Cold Zone receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs use the text layer when there is one; scans fall back to OCR</span></div>
             <img id="czImgPreview" class="img-preview"/>
             <div class="scan-status" id="czScanStatus"></div>
           </div>
@@ -1207,7 +1207,7 @@ global.PalletTable = { extractPalletTable, extractFromPages, asPalletId };
             ondragover="handleImgDragOver(event,'vtDropZone')" ondragleave="handleImgDragLeave('vtDropZone')"
             ondrop="handleCreatorDrop(event,'vertical')">
             <input type="file" id="vtFileInput" accept="application/pdf,image/*" onchange="handleCreatorFile(event,'vertical')">
-            <div class="img-drop-label"><strong>Drop the Vertical receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs are read from the text layer — no OCR, no misread digits</span></div>
+            <div class="img-drop-label"><strong>Drop the Vertical receipt PDF here</strong><br>or press <strong style="color:var(--accent)">Ctrl+V</strong> to paste a screenshot<br><span style="font-size:0.63rem;color:var(--muted)">PDFs use the text layer when there is one; scans fall back to OCR</span></div>
             <img id="vtImgPreview" class="img-preview"/>
             <div class="scan-status" id="vtScanStatus"></div>
           </div>
@@ -1732,7 +1732,7 @@ let creatorColumns = DEFAULT_COLUMNS.map(c => ({ ...c }));
 
 // Source descriptions shown below the selector
 const BOL_DESCRIPTIONS = {
-  coldzone:  'Cold Zone Warehouse Receipt. Columns: Pack ID | Cases | Plts | Item | Description | Prod | Exp | Lot No. | Weight. Pack ID → BC Lot (16-char IP codes auto-resolve their flock; 7-digit IDs need the Flock Code box, which also overrides every row when set). Prod → Lay Date; BC derives the expiration date itself.',
+  coldzone:  'Cold Zone Warehouse Receipt. Columns: Pack ID | Cases | Plts | Item | Description | Prod | Exp | Lot No. | Weight. Pack ID → BC Lot (OT-series IP codes auto-resolve their flock from the pallet table; MS- and MM-series codes and plain 7-digit IDs need the Flock Code box, which also overrides every row when set). Prod → Lay Date; BC derives the expiration date itself.',
   vertical:  'Vertical Cold Storage Warehouse Receipt. Columns: Quantity | Item | Description | Date | Lot | Net Weight | Gross Weight. The Lot column holds the 16-char IP pallet code — flock auto-resolved. Date is YYMMDD → Lay Date; BC derives the expiration date itself.',
   henorth:   'Printed/handwritten hybrid. Columns: Tag # | Egg Type | Lay Date. Tag format: CRITBA1 49406363. Lay Date: M-D-YY. Flock prefix prepended to lot.'
 };
@@ -1749,8 +1749,7 @@ const IP_LOOKUP = /*__IP_LOOKUP_START__*/{"00941":[[3201,1,1233]],"00231":[[3024
 // Returns the ExternalFlockID as a string for a 16-char IP Pack ID,
 // or null if the code isn't recognized / isn't a valid IP code.
 function lookupIpFlock(packId) {
-  if (typeof packId !== 'string') return null;
-  if (packId.length !== 16 || packId.slice(0,2) !== 'IP' || packId.slice(7,9) !== 'OT') return null;
+  if (!isIpPackId(packId)) return null;
   const supplier = packId.slice(2,7);
   const runs = IP_LOOKUP[supplier];
   if (!runs) return null;
@@ -1764,9 +1763,21 @@ function lookupIpFlock(packId) {
   return null;
 }
 
-// True if a raw Pack ID string looks like a 16-char IP code.
+// True if a raw Pack ID string looks like a 16-char IP code:
+//   "IP" + supplier(5 digits) + delimiter(2 letters) + serial(7 digits)
+// The delimiter is NOT always "OT". Mid-States pallets print "MS" and newer
+// runs print "MM". Pinning this check to "OT" is what made a 26-pallet MS
+// receipt parse as zero rows, so the test is structural instead.
 function isIpPackId(s) {
-  return typeof s === 'string' && s.length === 16 && s.slice(0,2) === 'IP' && s.slice(7,9) === 'OT';
+  return typeof s === 'string' && /^IP\d{5}[A-Z]{2}\d{7}$/.test(s);
+}
+
+// True when the pallet table has any coverage at all for this code's supplier.
+// When it doesn't, "not in the pallet table" says nothing about whether the ID
+// was read correctly — it only means the flock has to come from the Flock Code
+// box. Worth distinguishing so those rows don't get a misread-digit warning.
+function ipSupplierTracked(packId) {
+  return isIpPackId(packId) && !!IP_LOOKUP[packId.slice(2,7)];
 }
 
 // Build the full Cold Zone lot string from a raw Pack ID and the
@@ -1785,8 +1796,10 @@ function buildColdZoneLot(rawPackId, userPrefix) {
   if (isIpPackId(rawPackId)) {
     const mapped = lookupIpFlock(rawPackId);
     if (mapped) return mapped + '-' + rawPackId;
-    // Unknown IP code and no override — show the raw code so it's visible.
-    return rawPackId;
+    // Valid code, but the table can't resolve its flock (MS/MM suppliers are
+    // not in it at all). Report it as pending rather than handing back a lot
+    // with no flock prefix, which BC would reject anyway.
+    return null;
   }
   // Non-IP (7-digit) case — can't build a lot without a prefix.
   return null;
@@ -2073,6 +2086,22 @@ function verifyPackId(packId, ctx) {
   }
 
   const cands = packIdNeighbours(packId);
+
+  // Nothing one digit away, and the table has no entry for this supplier at
+  // all. That is the signature of a supplier family the table simply doesn't
+  // cover (every MS pallet lands here), not of a misread — so don't accuse the
+  // OCR of something it didn't do. The neighbour search still runs first, so a
+  // genuine supplier-digit misread that lands on a tracked supplier is still
+  // caught and corrected as before.
+  if (!cands.length && !ipSupplierTracked(packId)) {
+    return {
+      status: 'untracked', packId, original: packId, candidates: [],
+      note: 'Supplier ' + packId.slice(2,7) + ' (' + packId.slice(7,9)
+            + '-series) is not in the pallet table, so its flock can\u2019t be looked up. '
+            + 'The ID itself read fine \u2014 set the Flock Code above to finish these lots.'
+    };
+  }
+
   if (!cands.length) {
     return {
       status: 'unknown', packId, original: packId, candidates: [],
@@ -2346,45 +2375,70 @@ function normalizeIpToken(token, strict) {
 function parseColdZoneOcr(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const dateRx = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/;
-  // Candidate tokens for an IP code — 14-17 alphanumerics. We then feed each
-  // through normalizeIpToken() to rebuild the canonical 16-char form.
-  const ipCandidateRx = /[A-Za-z0-9]{14,17}/g;
+  // Candidate tokens for an IP code. The window is wider than 16 because OCR
+  // both drops the leading "I" and glues the next column on; normalizeIpToken()
+  // only ever reads 16 characters starting at the supplier, so over-long
+  // candidates rebuild correctly.
+  const ipCandidateRx = /[A-Za-z0-9]{14,20}/g;
   const sevenRx = /\b(\d{7})\b/;
+
+  // Cold Zone paperwork usually arrives stapled to a Bill of Lading and a
+  // loading report, and those pages carry 7-digit numbers that are not pack IDs
+  // at all. The seal number is the dangerous one: it is exactly 7 digits, so a
+  // 26-pallet receipt could come back as a single row whose lot was the seal.
+  const noiseRx = /\b(seal|trailer|bill of lading|b\/l|bol|order\s*no|shipper|receipt\s*no|owner|phone|ph:|net weight|gross weight|subtotal|totals?|temperature)\b/i;
+
+  // OCR breaks the pack ID with a stray space or hyphen often enough to matter
+  // ("IP 13751MS0001366", "1P-13751MS0001367"), so each line is also scanned
+  // with those separators stripped out. Original-order tokens are tried first
+  // so a real, intact code always wins over a glued-together one.
+  const ipTokensIn = (line) => {
+    const out = [];
+    [line, line.replace(/[\s\-]+/g, '')].forEach(v => {
+      (v.match(ipCandidateRx) || []).forEach(t => { if (out.indexOf(t) === -1) out.push(t); });
+    });
+    return out;
+  };
+
   const results = [];
   const seen = new Set();
+  let sawIp = false;
+
   lines.forEach((line, idx) => {
-    // Prefer IP code if any candidate token on the line normalizes and
-    // resolves in the lookup table (confirms it's really an IP code, not a
-    // stray 14-char garbage string). Fall back to a structural match if no
-    // candidate resolves, fall back to 7-digit if no IP match at all.
     let packId = null;
-    const cands = line.match(ipCandidateRx) || [];
-    // First pass — prefer one that resolves against the lookup table
+    const cands = ipTokensIn(line);
+
+    // Pass 1 — prefer a code the pallet table recognises. Confirms the token is
+    // a real pack ID rather than a 14-char run of OCR noise.
     for (const c of cands) {
-      const norm = normalizeIpToken(c);
+      const norm = normalizeIpToken(c, false);
       if (norm && lookupIpFlock(norm)) { packId = norm; break; }
     }
-    // Second pass — any structurally-valid IP code (unknown codes still get
-    // returned; the downstream buildColdZoneLot() will warn or fall back).
+    // Pass 2 — any structurally valid code, whatever its 2-letter delimiter is.
+    // This is the pass that carries MS and MM receipts: their suppliers have
+    // never been in IP_LOOKUP, so pass 1 can never match them, and the old
+    // strict-OT normalizer rejected them outright.
     if (!packId) {
       for (const c of cands) {
-        const norm = normalizeIpToken(c);
+        const norm = normalizeIpToken(c, false);
         if (norm) { packId = norm; break; }
       }
     }
-    // Fallback — plain 7-digit pack ID. Skip if this line looks like it held
-    // a failed IP candidate (avoids grabbing the serial tail as a fake ID).
-    if (!packId && cands.length === 0) {
+    if (packId) sawIp = true;
+
+    // Pass 3 — bare 7-digit pack ID, for the receipts that genuinely use them.
+    // Only on lines with no IP-shaped token, no header/footer keyword, and an
+    // actual date, which is what a detail row looks like.
+    let fromSeven = false;
+    if (!packId && !cands.length && !noiseRx.test(line) && dateRx.test(line)) {
       const idMatch = line.match(sevenRx);
-      if (idMatch) packId = idMatch[1];
-    } else if (!packId) {
-      // Line had long tokens but none looked IP-shaped — still try 7-digit.
-      const idMatch = line.match(sevenRx);
-      if (idMatch) packId = idMatch[1];
+      if (idMatch) { packId = idMatch[1]; fromSeven = true; }
     }
+
     if (!packId) return;
     if (seen.has(packId)) return;
     seen.add(packId);
+
     // Cold Zone receipts print Prod then Exp on the same row. Only Prod is
     // wanted — BC derives the expiration date from the Lay Date on its own.
     let rawDate = '';
@@ -2396,9 +2450,15 @@ function parseColdZoneOcr(text) {
     }
     const { date, uncertain } = parseDateMDY(rawDate);
     // For Cold Zone we emit rawPackId so prefixing happens downstream.
-    results.push({ rawPackId: packId, date, dateUncertain: uncertain });
+    results.push({ rawPackId: packId, date, dateUncertain: uncertain, _fromSeven: fromSeven });
   });
-  return results;
+
+  // A receipt uses one pack ID format or the other, never both. Once a real
+  // pallet code has been read, every bare-7-digit guess is a number scraped off
+  // the attached BOL or loading report.
+  const kept = sawIp ? results.filter(r => !r._fromSeven) : results;
+  kept.forEach(r => { delete r._fromSeven; });
+  return kept;
 }
 
 // Vertical warehouse receipts wrap the Lot column mid-code, so a row prints as
@@ -2443,12 +2503,12 @@ function parseVerticalOcr(text) {
     let packId = null;
     const cands = line.match(ipCandidateRx) || [];
     for (const c of cands) {
-      const norm = normalizeIpToken(c);
+      const norm = normalizeIpToken(c, false);
       if (norm && lookupIpFlock(norm)) { packId = norm; break; }
     }
     if (!packId) {
       for (const c of cands) {
-        const norm = normalizeIpToken(c);
+        const norm = normalizeIpToken(c, false);
         if (norm) { packId = norm; break; }
       }
     }
@@ -2750,6 +2810,19 @@ function renderCreatorResults() {
     banner = '<div class="banner warn">⚠ <strong>' + flaggedCount + ' row(s) marked with an amber edge.</strong> '
       + 'Hover a row to see why. These still copy and export normally — the mark is only a nudge to check them against the receipt.</div>';
   }
+  // A whole load from a supplier the pallet table doesn't cover has exactly one
+  // fix and it isn't "check the receipt" — it's typing the flock. Say so, with
+  // the delimiter named, so the pattern is recognisable next time.
+  if (!czFlockCode) {
+    const untracked = creatorEntries.filter(e => e.verify && e.verify.status === 'untracked');
+    if (untracked.length) {
+      const delims = [...new Set(untracked.map(e => e.rawPackId.slice(7,9)))].join(' / ');
+      banner += '<div class="banner warn">⚠ <strong>' + untracked.length + ' pallet(s) are '
+        + escHtml(delims) + '-series codes</strong>, which the pallet table doesn\u2019t cover — '
+        + 'the IDs read fine, but their flock can\u2019t be looked up. '
+        + 'Open <strong>Flock Code Override</strong> and type the 4-digit flock to finish these lots.</div>';
+    }
+  }
   list.innerHTML = banner + html;
 
   renderColumnBuilder();
@@ -2767,6 +2840,7 @@ function rowFlag(entry) {
   if (v.status === 'ambiguous') return 'Read as ' + v.original + '. Several real pallet IDs are one digit away — verify against the receipt.';
   if (v.status === 'corrected') return 'Read as ' + v.original + ', auto-corrected to ' + v.packId + '.';
   if (v.status === 'outlier')   return v.note;
+  if (v.status === 'untracked') return v.note;
   if (v.status === 'unknown')   return 'Not found in the pallet table and no near match — verify against the receipt.';
   return '';
 }
@@ -3581,6 +3655,7 @@ function showMatcherVerifyNote(numbers, exact) {
       amb++;
       details.push(pid + ' → ' + v.candidates.slice(0, 4).map(c => c.packId).join(' / '));
     } else if (v.status === 'corrected') { fixed++; details.push(pid + ' → likely ' + v.packId); }
+    else if (v.status === 'untracked')   { /* supplier simply isn't in the table — not a read error */ }
     else if (v.status === 'unknown')     { unk++;  details.push(pid + ' → no match in table'); }
     else if (v.status === 'outlier')     { unk++;  details.push(pid + ' → valid, but far outside this load\u2019s serial run'); }
   });
